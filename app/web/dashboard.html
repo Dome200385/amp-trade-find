@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AMP TRADE FIND</title>
+  <style>
+    :root{
+      --bg:#071019;--panel:#0c1722;--panel2:#111f2c;--line:#1f3140;--text:#edf5fb;
+      --muted:#8fa5b6;--accent:#53d3ff;--green:#42d392;--red:#ff6b6b;--amber:#ffc857;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,#061019,#0a121a);color:var(--text);
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+    .wrap{max-width:1500px;margin:0 auto;padding:22px}
+    .top{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:18px}
+    h1{margin:0;font-size:30px;letter-spacing:.04em}
+    .sub{color:var(--muted);margin-top:5px}
+    .badge{padding:7px 11px;border:1px solid var(--line);border-radius:999px;background:var(--panel)}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+    .card{background:rgba(12,23,34,.96);border:1px solid var(--line);border-radius:14px;padding:16px;min-height:110px}
+    .span3{grid-column:span 3}.span4{grid-column:span 4}.span6{grid-column:span 6}.span8{grid-column:span 8}.span12{grid-column:span 12}
+    .label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .big{font-size:31px;font-weight:750;margin-top:7px}
+    .med{font-size:21px;font-weight:700;margin-top:7px}
+    .row{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-top:9px}
+    .bar{height:10px;background:#172634;border-radius:999px;overflow:hidden;margin-top:10px}
+    .fill{height:100%;background:var(--accent);width:0}
+    .long{color:var(--green)} .short{color:var(--red)} .amber{color:var(--amber)}
+    .muted{color:var(--muted)}
+    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+    th,td{text-align:left;padding:9px 7px;border-bottom:1px solid var(--line)}
+    th{color:var(--muted);font-weight:600}
+    .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:#63798a}
+    .ok{background:var(--green)}.bad{background:var(--red)}.warn{background:var(--amber)}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#132534;border:1px solid var(--line);font-size:12px}
+    .footer{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
+    @media(max-width:900px){.span3,.span4,.span6,.span8{grid-column:span 12}.top{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>AMP TRADE FIND</h1>
+      <div class="sub">Trader Discovery · Validation Monitor</div>
+    </div>
+    <div class="badge" id="version">loading…</div>
+  </div>
+
+  <div class="grid">
+    <div class="card span3">
+      <div class="label">BTC Price</div>
+      <div class="big" id="price">—</div>
+      <div class="muted" id="source">—</div>
+    </div>
+    <div class="card span3">
+      <div class="label">State</div>
+      <div class="big" id="state">—</div>
+      <div class="muted" id="direction">—</div>
+    </div>
+    <div class="card span3">
+      <div class="label">LONG Score</div>
+      <div class="big long" id="longScore">—</div>
+      <div class="bar"><div class="fill" id="longBar"></div></div>
+    </div>
+    <div class="card span3">
+      <div class="label">SHORT Score</div>
+      <div class="big short" id="shortScore">—</div>
+      <div class="bar"><div class="fill" id="shortBar"></div></div>
+    </div>
+
+    <div class="card span4">
+      <div class="label">Signal Quality</div>
+      <div class="med" id="quality">—</div>
+      <div class="row"><span class="muted">Cross Market</span><span id="cross">—</span></div>
+      <div class="row"><span class="muted">Live CVD</span><span id="cvd">—</span></div>
+    </div>
+
+    <div class="card span4">
+      <div class="label">Validation Progress</div>
+      <div class="med"><span id="resolved">0</span> / <span id="target">200</span></div>
+      <div class="bar"><div class="fill" id="progressBar"></div></div>
+      <div class="row"><span class="muted">Captured</span><span id="captured">0</span></div>
+      <div class="row"><span class="muted">Active / Waiting</span><span id="activeWaiting">0</span></div>
+    </div>
+
+    <div class="card span4">
+      <div class="label">Collector</div>
+      <div class="med" id="collectorHealth">—</div>
+      <div class="row"><span class="muted">Last cycle</span><span id="lastCycle">—</span></div>
+      <div class="row"><span class="muted">Last reason</span><span id="lastReason">—</span></div>
+      <div class="row"><span class="muted">24h runs</span><span id="runs24">—</span></div>
+    </div>
+
+    <div class="card span8">
+      <div class="label">Market Venues</div>
+      <table>
+        <thead><tr><th>Venue</th><th>Type</th><th>Status</th><th>Delta %</th><th>Orderbook</th></tr></thead>
+        <tbody id="venues"></tbody>
+      </table>
+    </div>
+
+    <div class="card span4">
+      <div class="label">Validation Metrics</div>
+      <div class="row"><span class="muted">Win rate</span><span id="winRate">—</span></div>
+      <div class="row"><span class="muted">Profit factor</span><span id="pf">—</span></div>
+      <div class="row"><span class="muted">Expectancy</span><span id="expectancy">—</span></div>
+      <div class="row"><span class="muted">Gates</span><span id="gates">—</span></div>
+    </div>
+
+    <div class="card span12">
+      <div class="label">Current Blockers / Warnings</div>
+      <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
+    </div>
+  </div>
+
+  <div class="footer">Paper-analysis only · No live trade execution · Auto refresh 10s</div>
+</div>
+
+<script>
+const fmt=(v,d=2)=> (v===null||v===undefined)?"—":Number(v).toLocaleString(undefined,{maximumFractionDigits:d});
+const pill=(x)=>`<span class="pill">${x}</span>`;
+function age(iso){
+  if(!iso)return "—";
+  const s=Math.max(0,Math.round((Date.now()-Date.parse(iso))/1000));
+  return s<60?s+"s ago":Math.floor(s/60)+"m ago";
+}
+async function load(){
+  try{
+    const r=await fetch('/api/v1/monitoring');
+    const d=await r.json();
+    document.getElementById('version').textContent=`API ${d.api_version} · ${d.strategy_version}`;
+    document.getElementById('price').textContent='$ '+fmt(d.market.price,2);
+    document.getElementById('source').textContent=`Primary: ${d.market.primary_source}`;
+    document.getElementById('state').textContent=d.signal.state;
+    document.getElementById('direction').textContent=`Bias: ${d.signal.directional_bias}`;
+    document.getElementById('longScore').textContent=d.signal.long_score;
+    document.getElementById('shortScore').textContent=d.signal.short_score;
+    document.getElementById('longBar').style.width=Math.min(d.signal.long_score,100)+'%';
+    document.getElementById('shortBar').style.width=Math.min(d.signal.short_score,100)+'%';
+    document.getElementById('quality').textContent=d.signal.quality?.grade||'—';
+    document.getElementById('cross').textContent=d.signal.quality?.overall_consensus||'—';
+    document.getElementById('cvd').textContent=(d.signal.quality?.live_cvd_direction||'—')+' '+fmt(d.signal.quality?.live_cvd_pct,1)+'%';
+
+    const p=d.collector.progress||{};
+    const vc=d.collector.validation_counts||{};
+    document.getElementById('resolved').textContent=p.resolved_samples??0;
+    document.getElementById('target').textContent=p.target_resolved_samples??200;
+    document.getElementById('progressBar').style.width=(p.progress_pct||0)+'%';
+    document.getElementById('captured').textContent=vc.captured??0;
+    document.getElementById('activeWaiting').textContent=(vc.active||0)+(vc.waiting_entry||0);
+    document.getElementById('collectorHealth').innerHTML=d.collector.last_error?'<span class="short">ERROR</span>':'<span class="long">RUNNING</span>';
+    document.getElementById('lastCycle').textContent=age(d.collector.last_cycle_at_utc);
+    document.getElementById('lastReason').textContent=d.collector.last_reason||'—';
+    document.getElementById('runs24').textContent=d.collector.stats_24h?.runs??0;
+
+    const v=d.venues||{};
+    const names=['bybit','binance','okx','kraken','coinbase'];
+    document.getElementById('venues').innerHTML=names.map(n=>{
+      const x=v[n]||{};
+      const cls=x.available?'ok':'bad';
+      return `<tr><td>${(x.venue||n).toUpperCase()}</td><td>${x.market_type||'—'}</td>
+        <td><span class="dot ${cls}"></span>${x.available?'LIVE':'OFF'}</td>
+        <td>${fmt(x.taker_delta_pct,2)}</td><td>${fmt(x.orderbook_imbalance,3)}</td></tr>`
+    }).join('');
+
+    const o=d.validation?.overall||{};
+    document.getElementById('winRate').textContent=o.win_rate_pct==null?'—':fmt(o.win_rate_pct,1)+'%';
+    document.getElementById('pf').textContent=fmt(o.profit_factor,2);
+    document.getElementById('expectancy').textContent=o.expectancy_r==null?'—':fmt(o.expectancy_r,3)+' R';
+    const passed=d.validation?.validation_gate?.all_gates_passed;
+    document.getElementById('gates').innerHTML=passed?'<span class="long">PASSED</span>':'<span class="amber">NOT YET</span>';
+
+    const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
+    document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';
+  }catch(e){
+    document.getElementById('collectorHealth').innerHTML='<span class="short">API ERROR</span>';
+  }
+}
+load(); setInterval(load,10000);
+</script>
+</body>
+</html>

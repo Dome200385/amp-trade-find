@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Query, Header
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -21,6 +22,7 @@ from app.services.dashboard import build_dashboard
 from app.services.persistence import ensure_persistent_storage, persistence_status
 from app.services.collector_storage import init_collector_db, collector_stats
 from app.services.collector import collector_loop, collector_cycle, collector_status
+from app.services.monitoring import build_monitoring_payload
 from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
 from app.services.validation_evaluator import validation_loop, evaluate_validation_once
 from app.services.validation_analytics import validation_report
@@ -252,6 +254,20 @@ async def dashboard():
 
 
 
+
+
+@app.get("/monitor", response_class=HTMLResponse, include_in_schema=False)
+async def monitor_page():
+    from pathlib import Path
+    html = Path("app/web/dashboard.html").read_text(encoding="utf-8")
+    return HTMLResponse(content=html)
+
+@app.get("/api/v1/monitoring")
+async def monitoring_payload():
+    try:
+        return await build_monitoring_payload()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Monitoring unavailable: {exc}") from exc
 
 @app.get("/api/v1/collector/status")
 async def collector_status_endpoint():
