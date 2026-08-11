@@ -216,3 +216,14 @@ def recent_validation(limit=50):
             LIMIT ?
         """, (limit,)).fetchall()
     return [dict(r) for r in rows]
+
+
+def validation_counts():
+    with _connect() as db:
+        return {
+          "captured": db.execute("SELECT COUNT(*) FROM validation_setups").fetchone()[0],
+          "waiting_entry": db.execute("SELECT COUNT(*) FROM validation_setups WHERE outcome='WAITING_ENTRY'").fetchone()[0],
+          "active": db.execute("SELECT COUNT(*) FROM validation_setups WHERE outcome='ACTIVE'").fetchone()[0],
+          "resolved": db.execute("SELECT COUNT(*) FROM validation_setups WHERE outcome IN ('TP1','TP2','STOPPED','EXPIRED')").fetchone()[0],
+          "missed_entry": db.execute("SELECT COUNT(*) FROM validation_setups WHERE outcome='MISSED_ENTRY'").fetchone()[0],
+        }

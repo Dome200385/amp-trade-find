@@ -63,7 +63,7 @@ def persistence_status():
     if db_exists:
         try:
             with sqlite3.connect(settings.database_path) as db:
-                for table in ("signals", "validation_setups", "push_devices"):
+                for table in ("signals", "validation_setups", "push_devices", "collector_runs"):
                     try:
                         counts[table] = db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
                     except Exception:

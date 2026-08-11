@@ -19,6 +19,8 @@ from app.services.backtest import run_backtest, summarize
 from app.services.validation import walk_forward
 from app.services.dashboard import build_dashboard
 from app.services.persistence import ensure_persistent_storage, persistence_status
+from app.services.collector_storage import init_collector_db, collector_stats
+from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
 from app.services.validation_evaluator import validation_loop, evaluate_validation_once
 from app.services.validation_analytics import validation_report
@@ -43,16 +45,17 @@ async def lifespan(app: FastAPI):
     init_db()
     init_push_db()
     init_validation_db()
+    init_collector_db()
     ws_task = asyncio.create_task(run_bybit_trade_stream())
     outcome_task = asyncio.create_task(outcome_loop())
     validation_task = asyncio.create_task(validation_loop())
-    validation_auto_task = asyncio.create_task(validation_auto_loop())
+    collector_task = asyncio.create_task(collector_loop())
     yield
     ws_task.cancel()
     outcome_task.cancel()
     validation_task.cancel()
-    validation_auto_task.cancel()
-    await asyncio.gather(ws_task, outcome_task, validation_task, validation_auto_task, return_exceptions=True)
+    collector_task.cancel()
+    await asyncio.gather(ws_task, outcome_task, validation_task, collector_task, return_exceptions=True)
 
 app = FastAPI(
     title=settings.app_name,
@@ -248,6 +251,20 @@ async def dashboard():
 
 
 
+
+
+@app.get("/api/v1/collector/status")
+async def collector_status_endpoint():
+    return collector_status()
+
+@app.post("/api/v1/collector/run")
+async def collector_run_endpoint():
+    try: return await collector_cycle()
+    except Exception as exc: raise HTTPException(status_code=502, detail=f"Collector cycle unavailable: {exc}") from exc
+
+@app.get("/api/v1/collector/stats")
+async def collector_stats_endpoint(hours: int = Query(default=24, ge=1, le=720)):
+    return collector_stats(hours)
 
 @app.get("/api/v1/persistence/status")
 async def persistence_status_endpoint():
