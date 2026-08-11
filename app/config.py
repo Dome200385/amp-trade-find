@@ -2,12 +2,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "AMP TRADE FIND"
-    app_version: str = "0.8.1"
+    app_version: str = "0.8.2"
 
     bybit_base_url: str = "https://api.bybit.com"
     bybit_ws_linear_url: str = "wss://stream.bybit.com/v5/public/linear"
     binance_futures_base_url: str = "https://fapi.binance.com"
     coinbase_exchange_base_url: str = "https://api.exchange.coinbase.com"
+    okx_base_url: str = "https://www.okx.com"
+    kraken_base_url: str = "https://api.kraken.com"
+    okx_instrument: str = "BTC-USDT-SWAP"
+    kraken_pair: str = "XBTUSD"
 
     symbol: str = "BTCUSDT"
     coinbase_product: str = "BTC-USD"
@@ -24,7 +28,7 @@ class Settings(BaseSettings):
     min_validated_samples: int = 200
     max_signal_validity_minutes: int = 15
 
-    strategy_version: str = "FIND-V8.1-1"
+    strategy_version: str = "FIND-V8.2-1"
     signal_cooldown_minutes: int = 20
     signal_dedupe_price_pct: float = 0.20
 

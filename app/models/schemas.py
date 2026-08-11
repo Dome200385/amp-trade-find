@@ -27,12 +27,15 @@ class VenueFlow(BaseModel):
 class CrossExchangeFlow(BaseModel):
     bybit: VenueFlow
     binance: VenueFlow
+    okx: VenueFlow
+    kraken: VenueFlow
     coinbase: VenueFlow
     long_confirmations: int
     short_confirmations: int
     available_venues: int
     consensus: Literal["LONG", "SHORT", "MIXED", "NEUTRAL"]
     consensus_strength: float
+    available_names: list[str]
 
 class OrderFlowSnapshot(BaseModel):
     trade_count: int
