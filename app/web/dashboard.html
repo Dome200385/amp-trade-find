@@ -33,7 +33,7 @@
     th{color:var(--muted);font-weight:600}
     .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:#63798a}
     .ok{background:var(--green)}.bad{background:var(--red)}.warn{background:var(--amber)}
-    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#132534;border:1px solid var(--line);font-size:12px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#132534;border:1px solid var(--line);font-size:12px}.rankA{color:var(--green);font-weight:700}.rankB{color:var(--amber);font-weight:700}
     .footer{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
     .opp{border-color:#28506a;background:linear-gradient(135deg,rgba(12,23,34,.98),rgba(12,35,45,.98))}
     .oppgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:12px}
@@ -137,6 +137,22 @@
       <table><thead><tr><th>Time</th><th>Direction</th><th>Score</th><th>Quality</th><th>Grade</th><th>Conf.</th><th>Entry</th><th>Stop</th><th>TP1</th><th>R:R</th><th>Outcome</th></tr></thead><tbody id="history"></tbody></table>
     </div>
 
+    <div class="card span4">
+      <div class="label">Validation Intelligence</div>
+      <div class="row"><span class="muted">Best direction</span><span id="bestDirection">—</span></div>
+      <div class="row"><span class="muted">Best grade</span><span id="bestGrade">—</span></div>
+      <div class="row"><span class="muted">Best confidence</span><span id="bestConfidence">—</span></div>
+      <div class="row"><span class="muted">Resolved sample</span><span id="intelResolved">0</span></div>
+    </div>
+
+    <div class="card span8">
+      <div class="label">Best Setup Types</div>
+      <table>
+        <thead><tr><th>Dir.</th><th>Grade</th><th>Confidence</th><th>N</th><th>Win %</th><th>PF</th><th>Exp. R</th></tr></thead>
+        <tbody id="leaderboard"></tbody>
+      </table>
+    </div>
+
     <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
@@ -216,6 +232,27 @@ async function load(){
     document.getElementById('outcomeRates').textContent=o.resolved?`${fmt(o.tp1_rate_pct,0)}% / ${fmt(o.tp2_rate_pct,0)}% / ${fmt(o.stop_rate_pct,0)}%`:'—';
     const passed=d.validation?.validation_gate?.all_gates_passed;
     document.getElementById('gates').innerHTML=passed?'<span class="long">PASSED</span>':'<span class="amber">NOT YET</span>';
+    const intel=d.intelligence||{};
+    const dirs=intel.dimensions?.direction||{};
+    const grades=intel.dimensions?.setup_grade||{};
+    const confs=intel.dimensions?.confidence||{};
+    const bestBy=(obj)=>{
+      const entries=Object.entries(obj);
+      if(!entries.length)return '—';
+      entries.sort((a,b)=>(b[1].expectancy_r??-999)-(a[1].expectancy_r??-999));
+      const [k,v]=entries[0];
+      return `${k} · ${v.resolved||0}N · ${v.expectancy_r==null?'—':fmt(v.expectancy_r,2)+'R'}`;
+    };
+    document.getElementById('bestDirection').textContent=bestBy(dirs);
+    document.getElementById('bestGrade').textContent=bestBy(grades);
+    document.getElementById('bestConfidence').textContent=bestBy(confs);
+    document.getElementById('intelResolved').textContent=intel.overall?.resolved??0;
+    document.getElementById('leaderboard').innerHTML=(intel.leaderboard||[]).slice(0,6).map(x=>
+      `<tr><td>${x.direction}</td><td>${x.setup_grade}</td><td>${x.confidence_bucket}</td>
+       <td>${x.resolved}</td><td>${x.win_rate_pct==null?'—':fmt(x.win_rate_pct,0)+'%'}</td>
+       <td>${x.profit_factor==null?'—':fmt(x.profit_factor,2)}</td>
+       <td>${x.expectancy_r==null?'—':fmt(x.expectancy_r,2)}</td></tr>`
+    ).join('')||'<tr><td colspan="7" class="muted">Not enough resolved setups yet</td></tr>';
 
     const hs=d.recent_setups||[];
     document.getElementById('history').innerHTML=hs.length?hs.map(x=>`<tr><td>${x.created_at?new Date(x.created_at).toLocaleString():'—'}</td><td class="history-state ${x.direction==='LONG'?'long':'short'}">${x.direction||'—'}</td><td>${x.score??'—'}</td><td>${x.quality_grade||'—'}</td><td>${x.setup_grade||'LEGACY'}</td><td>${x.confidence_pct==null?'—':fmt(x.confidence_pct,1)+'%'}</td><td>${fmt(x.entry_center,2)}</td><td>${fmt(x.stop,2)}</td><td>${fmt(x.target1,2)}</td><td>${fmt(x.rr1,2)}</td><td>${x.outcome||'—'}</td></tr>`).join(''):'<tr><td colspan="11" class="muted">No captured setups yet.</td></tr>';
