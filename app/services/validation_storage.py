@@ -2,6 +2,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from app.config import settings
+from app.services.setup_features import extract_setup_features
 
 def _connect():
     db = sqlite3.connect(settings.database_path)
@@ -56,7 +57,8 @@ def init_validation_db():
             warnings_json TEXT,
             quality_json TEXT,
             snapshot_json TEXT,
-            signal_json TEXT
+            signal_json TEXT,
+            features_json TEXT
         )
         """)
         cols = {row[1] for row in db.execute("PRAGMA table_info(validation_setups)").fetchall()}
@@ -64,6 +66,8 @@ def init_validation_db():
             db.execute("ALTER TABLE validation_setups ADD COLUMN setup_grade TEXT")
         if "confidence_pct" not in cols:
             db.execute("ALTER TABLE validation_setups ADD COLUMN confidence_pct REAL")
+        if "features_json" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN features_json TEXT")
 
         db.execute("""
         CREATE INDEX IF NOT EXISTS idx_validation_status
@@ -80,6 +84,7 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
     state = signal.get("state")
     quality = signal.get("signal_quality") or {}
     adaptive = signal.get("adaptive_assessment") or {}
+    features = extract_setup_features(snapshot, signal)
     entry = signal.get("entry_decision")
     score = signal.get("long_score", 0) if direction == "LONG" else signal.get("short_score", 0)
 
@@ -124,10 +129,10 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
             state_at_capture, quality_grade, setup_grade, confidence_pct,
             score, long_score, short_score, entry_low, entry_high, entry_center, stop, target1, target2, rr1, rr2,
             validity_minutes, outcome, mfe_price, mae_price, capture_hour_utc,
-            primary_source, available_venues, live_cvd_direction, live_cvd_pct,
+            primary_source, available_venues, live_cvd_direction, live_cvd_pct, features_json,
             market_bias, invalidation, blockers_json, warnings_json, quality_json,
-            snapshot_json, signal_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            snapshot_json, signal_json, features_json
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             setup_id, now.isoformat(), now.isoformat(), settings.strategy_version,
             signal.get("symbol"), direction, state, quality.get("grade"),
@@ -146,6 +151,7 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
             json.dumps(quality, separators=(",",":")),
             json.dumps(snapshot, separators=(",",":")),
             json.dumps(signal, separators=(",",":")),
+            json.dumps(features, separators=(",",":")),
         ))
         db.commit()
     return True, setup_id
@@ -220,7 +226,7 @@ def recent_validation(limit=50):
                    setup_grade, confidence_pct, score, long_score, short_score, entry_low, entry_high, entry_center,
                    stop, target1, target2, rr1, rr2, entry_reached, entry_reached_at,
                    outcome, outcome_at, mfe_r, mae_r, close_r, capture_hour_utc,
-                   primary_source, available_venues, live_cvd_direction, live_cvd_pct
+                   primary_source, available_venues, live_cvd_direction, live_cvd_pct, features_json
             FROM validation_setups
             ORDER BY created_at DESC
             LIMIT ?

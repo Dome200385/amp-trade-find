@@ -24,6 +24,7 @@ from app.services.collector_storage import init_collector_db, collector_stats
 from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
+from app.services.regime_analytics import build_regime_analytics
 from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
 from app.services.validation_evaluator import validation_loop, evaluate_validation_once
 from app.services.validation_analytics import validation_report
@@ -298,6 +299,11 @@ async def validation_auto_run_endpoint():
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Auto validation scan unavailable: {exc}") from exc
 
+
+
+@app.get("/api/v1/validation/regimes")
+async def validation_regimes_endpoint():
+    return build_regime_analytics()
 
 @app.get("/api/v1/validation/intelligence")
 async def validation_intelligence_endpoint():

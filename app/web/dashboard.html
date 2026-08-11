@@ -153,6 +153,22 @@
       </table>
     </div>
 
+    <div class="card span4">
+      <div class="label">Market Regime Learning</div>
+      <div class="row"><span class="muted">Best regime</span><span id="bestRegime">—</span></div>
+      <div class="row"><span class="muted">Best volatility</span><span id="bestVolatility">—</span></div>
+      <div class="row"><span class="muted">Best cross-market</span><span id="bestCrossRegime">—</span></div>
+      <div class="row"><span class="muted">Feature samples</span><span id="featureSamples">0</span></div>
+    </div>
+
+    <div class="card span8">
+      <div class="label">Best Market Conditions</div>
+      <table>
+        <thead><tr><th>Dir.</th><th>Regime</th><th>Vol.</th><th>Cross</th><th>N</th><th>Win %</th><th>PF</th><th>Exp. R</th></tr></thead>
+        <tbody id="regimeLeaderboard"></tbody>
+      </table>
+    </div>
+
     <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
@@ -256,6 +272,25 @@ async function load(){
 
     const hs=d.recent_setups||[];
     document.getElementById('history').innerHTML=hs.length?hs.map(x=>`<tr><td>${x.created_at?new Date(x.created_at).toLocaleString():'—'}</td><td class="history-state ${x.direction==='LONG'?'long':'short'}">${x.direction||'—'}</td><td>${x.score??'—'}</td><td>${x.quality_grade||'—'}</td><td>${x.setup_grade||'LEGACY'}</td><td>${x.confidence_pct==null?'—':fmt(x.confidence_pct,1)+'%'}</td><td>${fmt(x.entry_center,2)}</td><td>${fmt(x.stop,2)}</td><td>${fmt(x.target1,2)}</td><td>${fmt(x.rr1,2)}</td><td>${x.outcome||'—'}</td></tr>`).join(''):'<tr><td colspan="11" class="muted">No captured setups yet.</td></tr>';
+
+
+    const regimes=d.regime_analytics||{};
+    const bestDim=(obj)=>{
+      const entries=Object.entries(obj||{}).filter(([,v])=>(v.resolved||0)>0);
+      if(!entries.length)return '—';
+      entries.sort((a,b)=>(b[1].expectancy_r??-999)-(a[1].expectancy_r??-999));
+      const [k,v]=entries[0];
+      return `${k} · ${v.resolved}N · ${v.expectancy_r==null?'—':fmt(v.expectancy_r,2)+'R'}`;
+    };
+    document.getElementById('bestRegime').textContent=bestDim(regimes.dimensions?.market_regime);
+    document.getElementById('bestVolatility').textContent=bestDim(regimes.dimensions?.volatility);
+    document.getElementById('bestCrossRegime').textContent=bestDim(regimes.dimensions?.cross_market);
+    document.getElementById('featureSamples').textContent=regimes.overall?.captured??0;
+    document.getElementById('regimeLeaderboard').innerHTML=(regimes.leaderboard||[]).slice(0,6).map(x=>
+      `<tr><td>${x.direction}</td><td>${x.market_regime}</td><td>${x.volatility}</td><td>${x.cross_market}</td>
+       <td>${x.resolved}</td><td>${x.win_rate_pct==null?'—':fmt(x.win_rate_pct,0)+'%'}</td>
+       <td>${x.profit_factor==null?'—':fmt(x.profit_factor,2)}</td><td>${x.expectancy_r==null?'—':fmt(x.expectancy_r,2)}</td></tr>`
+    ).join('')||'<tr><td colspan="8" class="muted">New V9.4 feature samples are still being collected</td></tr>';
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';

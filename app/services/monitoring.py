@@ -3,6 +3,7 @@ from app.services.market import build_market_snapshot
 from app.services.engine import calculate_signal
 from app.services.validation_analytics import validation_report
 from app.services.validation_intelligence import build_intelligence
+from app.services.regime_analytics import build_regime_analytics
 from app.services.collector import collector_status
 from app.services.validation_storage import recent_validation
 
@@ -38,6 +39,5 @@ async def build_monitoring_payload():
         "venues": snapshot.get("cross_exchange", {}),
         "collector": collector_status(),
         "validation": validation_report(),
-        "intelligence": build_intelligence(),
         "recent_setups": recent_validation(8),
     }
