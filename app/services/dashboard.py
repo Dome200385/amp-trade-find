@@ -5,6 +5,7 @@ from app.services.engine import calculate_signal
 from app.services.storage import performance_stats, recent_signals
 from app.services.notification_payload import build_notification_payload
 from app.services.validation_analytics import validation_report
+from app.services.validation_auto import validation_auto_status
 
 def _fmt_event(event_risk: dict) -> dict:
     return {
@@ -18,6 +19,7 @@ async def build_dashboard():
     signal = calculate_signal(snapshot)
     perf = performance_stats()
     validation = validation_report()
+    validation_auto = validation_auto_status()
     history = recent_signals(20)
 
     x = snapshot["cross_exchange"]
@@ -82,6 +84,7 @@ async def build_dashboard():
         "event_risk": _fmt_event(snapshot["event_risk"]),
         "performance": perf,
         "validation": validation,
+        "validation_auto": validation_auto,
         "recent_signals": history,
         "disclaimer": "Paper-analysis system. FIND Score is not a guaranteed probability."
     }

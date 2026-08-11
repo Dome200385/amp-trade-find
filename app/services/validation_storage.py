@@ -94,9 +94,13 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
             FROM validation_setups
             WHERE direction=? AND strategy_version=?
               AND outcome IN ('WAITING_ENTRY','ACTIVE')
-              AND created_at >= datetime('now','-15 minutes')
+              AND created_at >= datetime('now', ?)
             ORDER BY created_at DESC LIMIT 1
-        """, (direction, settings.strategy_version)).fetchone()
+        """, (
+            direction,
+            settings.strategy_version,
+            f"-{settings.validation_capture_cooldown_minutes} minutes"
+        )).fetchone()
 
         if existing:
             old = float(existing["entry_center"] or 0)

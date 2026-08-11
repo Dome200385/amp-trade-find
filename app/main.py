@@ -21,6 +21,7 @@ from app.services.dashboard import build_dashboard
 from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
 from app.services.validation_evaluator import validation_loop, evaluate_validation_once
 from app.services.validation_analytics import validation_report
+from app.services.validation_auto import validation_auto_loop, auto_scan_once, validation_auto_status
 from app.services.push_storage import init_push_db, register_device, unregister_device
 from app.services.firebase_push import status as firebase_status, send_signal_payload
 from app.services.readiness import check_readiness
@@ -43,11 +44,13 @@ async def lifespan(app: FastAPI):
     ws_task = asyncio.create_task(run_bybit_trade_stream())
     outcome_task = asyncio.create_task(outcome_loop())
     validation_task = asyncio.create_task(validation_loop())
+    validation_auto_task = asyncio.create_task(validation_auto_loop())
     yield
     ws_task.cancel()
     outcome_task.cancel()
     validation_task.cancel()
-    await asyncio.gather(ws_task, outcome_task, validation_task, return_exceptions=True)
+    validation_auto_task.cancel()
+    await asyncio.gather(ws_task, outcome_task, validation_task, validation_auto_task, return_exceptions=True)
 
 app = FastAPI(
     title=settings.app_name,
@@ -140,6 +143,15 @@ async def sources_status():
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Source status unavailable: {exc}")
 
+
+@app.get("/api/v1/version")
+async def version_info():
+    return {
+        "api_version": settings.app_version,
+        "strategy_version": settings.strategy_version,
+        "paper_mode": settings.paper_mode,
+    }
+
 @app.get("/api/v1/market/snapshot", response_model=MarketSnapshot)
 async def market_snapshot():
     try:
@@ -231,6 +243,18 @@ async def dashboard():
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unavailable: {exc}") from exc
 
+
+
+@app.get("/api/v1/validation/auto/status")
+async def validation_auto_status_endpoint():
+    return validation_auto_status()
+
+@app.post("/api/v1/validation/auto/run")
+async def validation_auto_run_endpoint():
+    try:
+        return await auto_scan_once()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Auto validation scan unavailable: {exc}") from exc
 
 @app.get("/api/v1/validation/report")
 async def validation_report_endpoint():

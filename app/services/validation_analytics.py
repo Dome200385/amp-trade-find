@@ -31,6 +31,7 @@ def _stats(rows):
         "wins": len(wins),
         "losses": len(losses),
         "missed_entry": sum(1 for r in rows if r["outcome"]=="MISSED_ENTRY"),
+        "capture_rate_pct": None,
         "win_rate_pct": round(len(wins)/len(resolved)*100,2) if resolved else None,
         "profit_factor": round(pf,3) if pf is not None else None,
         "expectancy_r": round(expectancy,4) if expectancy is not None else None,
