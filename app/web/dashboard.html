@@ -35,6 +35,12 @@
     .ok{background:var(--green)}.bad{background:var(--red)}.warn{background:var(--amber)}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#132534;border:1px solid var(--line);font-size:12px}
     .footer{color:var(--muted);font-size:12px;margin-top:18px;text-align:center}
+    .opp{border-color:#28506a;background:linear-gradient(135deg,rgba(12,23,34,.98),rgba(12,35,45,.98))}
+    .oppgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-top:12px}
+    .metric{background:#0a141e;border:1px solid var(--line);border-radius:10px;padding:11px}
+    .metric b{display:block;margin-top:5px;font-size:17px}
+    .history-state{font-weight:700}
+    @media(max-width:900px){.oppgrid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:900px){.span3,.span4,.span6,.span8{grid-column:span 12}.top{align-items:flex-start;flex-direction:column}}
   </style>
 </head>
@@ -68,6 +74,20 @@
       <div class="label">SHORT Score</div>
       <div class="big short" id="shortScore">—</div>
       <div class="bar"><div class="fill" id="shortBar"></div></div>
+    </div>
+
+    <div class="card span12 opp">
+      <div class="label">Live Opportunity</div>
+      <div class="row"><div class="med" id="oppTitle">NO ACTIONABLE SETUP</div><span class="pill" id="oppState">—</span></div>
+      <div class="muted" id="oppReason" style="margin-top:7px">Waiting for a validated market setup.</div>
+      <div class="oppgrid">
+        <div class="metric"><span class="muted">Entry zone</span><b id="oppEntry">—</b></div>
+        <div class="metric"><span class="muted">Stop</span><b id="oppStop">—</b></div>
+        <div class="metric"><span class="muted">Target 1</span><b id="oppT1">—</b></div>
+        <div class="metric"><span class="muted">Target 2</span><b id="oppT2">—</b></div>
+        <div class="metric"><span class="muted">R:R</span><b id="oppRR">—</b></div>
+        <div class="metric"><span class="muted">Score / Quality</span><b id="oppScore">—</b></div>
+      </div>
     </div>
 
     <div class="card span4">
@@ -110,6 +130,11 @@
     </div>
 
     <div class="card span12">
+      <div class="label">Recent Detected Setups</div>
+      <table><thead><tr><th>Time</th><th>Direction</th><th>Score</th><th>Quality</th><th>Entry</th><th>Stop</th><th>TP1</th><th>R:R</th><th>Outcome</th></tr></thead><tbody id="history"></tbody></table>
+    </div>
+
+    <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
@@ -143,6 +168,20 @@ async function load(){
     document.getElementById('cross').textContent=d.signal.quality?.overall_consensus||'—';
     document.getElementById('cvd').textContent=(d.signal.quality?.live_cvd_direction||'—')+' '+fmt(d.signal.quality?.live_cvd_pct,1)+'%';
 
+    const e=d.signal.entry_decision;
+    const dir=d.signal.directional_bias;
+    const actionable=['SETUP_FORMING','READY','PAPER_SIGNAL'].includes(d.signal.state) && ['LONG','SHORT'].includes(dir) && e?.valid;
+    document.getElementById('oppTitle').innerHTML=actionable?`<span class="${dir==='LONG'?'long':'short'}">${dir} OPPORTUNITY</span>`:'NO ACTIONABLE SETUP';
+    document.getElementById('oppState').textContent=d.signal.state||'—';
+    document.getElementById('oppReason').textContent=e?.invalidation || (d.signal.blockers||[]).join(' · ') || 'Waiting for stronger confirmation.';
+    document.getElementById('oppEntry').textContent=e?('$ '+fmt(e.entry_low,2)+' – $ '+fmt(e.entry_high,2)):'—';
+    document.getElementById('oppStop').textContent=e?'$ '+fmt(e.stop,2):'—';
+    document.getElementById('oppT1').textContent=e?'$ '+fmt(e.target1,2):'—';
+    document.getElementById('oppT2').textContent=e?'$ '+fmt(e.target2,2):'—';
+    document.getElementById('oppRR').textContent=e?(fmt(e.rr_target1,2)+' / '+fmt(e.rr_target2,2)):'—';
+    const score=dir==='LONG'?d.signal.long_score:dir==='SHORT'?d.signal.short_score:'—';
+    document.getElementById('oppScore').textContent=score+' / '+(d.signal.quality?.grade||'—');
+
     const p=d.collector.progress||{};
     const vc=d.collector.validation_counts||{};
     document.getElementById('resolved').textContent=p.resolved_samples??0;
@@ -171,6 +210,9 @@ async function load(){
     document.getElementById('expectancy').textContent=o.expectancy_r==null?'—':fmt(o.expectancy_r,3)+' R';
     const passed=d.validation?.validation_gate?.all_gates_passed;
     document.getElementById('gates').innerHTML=passed?'<span class="long">PASSED</span>':'<span class="amber">NOT YET</span>';
+
+    const hs=d.recent_setups||[];
+    document.getElementById('history').innerHTML=hs.length?hs.map(x=>`<tr><td>${x.created_at?new Date(x.created_at).toLocaleString():'—'}</td><td class="history-state ${x.direction==='LONG'?'long':'short'}">${x.direction||'—'}</td><td>${x.score??'—'}</td><td>${x.quality_grade||'—'}</td><td>${fmt(x.entry_center,2)}</td><td>${fmt(x.stop,2)}</td><td>${fmt(x.target1,2)}</td><td>${fmt(x.rr1,2)}</td><td>${x.outcome||'—'}</td></tr>`).join(''):'<tr><td colspan="9" class="muted">No captured setups yet.</td></tr>';
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';
