@@ -20,6 +20,8 @@ def init_validation_db():
             direction TEXT NOT NULL,
             state_at_capture TEXT NOT NULL,
             quality_grade TEXT NOT NULL,
+            setup_grade TEXT,
+            confidence_pct REAL,
             score INTEGER NOT NULL,
             long_score INTEGER NOT NULL,
             short_score INTEGER NOT NULL,
@@ -57,6 +59,12 @@ def init_validation_db():
             signal_json TEXT
         )
         """)
+        cols = {row[1] for row in db.execute("PRAGMA table_info(validation_setups)").fetchall()}
+        if "setup_grade" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN setup_grade TEXT")
+        if "confidence_pct" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN confidence_pct REAL")
+
         db.execute("""
         CREATE INDEX IF NOT EXISTS idx_validation_status
         ON validation_setups(outcome, created_at)
@@ -71,6 +79,7 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
     direction = signal.get("directional_bias")
     state = signal.get("state")
     quality = signal.get("signal_quality") or {}
+    adaptive = signal.get("adaptive_assessment") or {}
     entry = signal.get("entry_decision")
     score = signal.get("long_score", 0) if direction == "LONG" else signal.get("short_score", 0)
 
@@ -112,16 +121,17 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
         db.execute("""
         INSERT INTO validation_setups (
             setup_id, created_at, updated_at, strategy_version, symbol, direction,
-            state_at_capture, quality_grade, score, long_score, short_score,
-            entry_low, entry_high, entry_center, stop, target1, target2, rr1, rr2,
+            state_at_capture, quality_grade, setup_grade, confidence_pct,
+            score, long_score, short_score, entry_low, entry_high, entry_center, stop, target1, target2, rr1, rr2,
             validity_minutes, outcome, mfe_price, mae_price, capture_hour_utc,
             primary_source, available_venues, live_cvd_direction, live_cvd_pct,
             market_bias, invalidation, blockers_json, warnings_json, quality_json,
             snapshot_json, signal_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             setup_id, now.isoformat(), now.isoformat(), settings.strategy_version,
             signal.get("symbol"), direction, state, quality.get("grade"),
+            adaptive.get("setup_grade"), adaptive.get("confidence_pct"),
             int(score), int(signal.get("long_score",0)), int(signal.get("short_score",0)),
             entry.get("entry_low"), entry.get("entry_high"), entry.get("entry_center"),
             entry.get("stop"), entry.get("target1"), entry.get("target2"),
@@ -207,7 +217,7 @@ def recent_validation(limit=50):
     with _connect() as db:
         rows = db.execute("""
             SELECT setup_id, created_at, direction, state_at_capture, quality_grade,
-                   score, long_score, short_score, entry_low, entry_high, entry_center,
+                   setup_grade, confidence_pct, score, long_score, short_score, entry_low, entry_high, entry_center,
                    stop, target1, target2, rr1, rr2, entry_reached, entry_reached_at,
                    outcome, outcome_at, mfe_r, mae_r, close_r, capture_hour_utc,
                    primary_source, available_venues, live_cvd_direction, live_cvd_pct

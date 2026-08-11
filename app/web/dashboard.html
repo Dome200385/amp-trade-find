@@ -93,6 +93,8 @@
     <div class="card span4">
       <div class="label">Signal Quality</div>
       <div class="med" id="quality">—</div>
+      <div class="row"><span class="muted">Confidence</span><span id="confidence">—</span></div>
+      <div class="row"><span class="muted">Setup Grade</span><span id="setupGrade">—</span></div>
       <div class="row"><span class="muted">Cross Market</span><span id="cross">—</span></div>
       <div class="row"><span class="muted">Live CVD</span><span id="cvd">—</span></div>
     </div>
@@ -126,12 +128,13 @@
       <div class="row"><span class="muted">Win rate</span><span id="winRate">—</span></div>
       <div class="row"><span class="muted">Profit factor</span><span id="pf">—</span></div>
       <div class="row"><span class="muted">Expectancy</span><span id="expectancy">—</span></div>
+      <div class="row"><span class="muted">TP1 / TP2 / Stop</span><span id="outcomeRates">—</span></div>
       <div class="row"><span class="muted">Gates</span><span id="gates">—</span></div>
     </div>
 
     <div class="card span12">
       <div class="label">Recent Detected Setups</div>
-      <table><thead><tr><th>Time</th><th>Direction</th><th>Score</th><th>Quality</th><th>Entry</th><th>Stop</th><th>TP1</th><th>R:R</th><th>Outcome</th></tr></thead><tbody id="history"></tbody></table>
+      <table><thead><tr><th>Time</th><th>Direction</th><th>Score</th><th>Quality</th><th>Grade</th><th>Conf.</th><th>Entry</th><th>Stop</th><th>TP1</th><th>R:R</th><th>Outcome</th></tr></thead><tbody id="history"></tbody></table>
     </div>
 
     <div class="card span12">
@@ -165,6 +168,8 @@ async function load(){
     document.getElementById('longBar').style.width=Math.min(d.signal.long_score,100)+'%';
     document.getElementById('shortBar').style.width=Math.min(d.signal.short_score,100)+'%';
     document.getElementById('quality').textContent=d.signal.quality?.grade||'—';
+    document.getElementById('confidence').textContent=d.signal.confidence_pct==null?'—':fmt(d.signal.confidence_pct,1)+'%';
+    document.getElementById('setupGrade').textContent=d.signal.setup_grade||'—';
     document.getElementById('cross').textContent=d.signal.quality?.overall_consensus||'—';
     document.getElementById('cvd').textContent=(d.signal.quality?.live_cvd_direction||'—')+' '+fmt(d.signal.quality?.live_cvd_pct,1)+'%';
 
@@ -180,7 +185,7 @@ async function load(){
     document.getElementById('oppT2').textContent=e?'$ '+fmt(e.target2,2):'—';
     document.getElementById('oppRR').textContent=e?(fmt(e.rr_target1,2)+' / '+fmt(e.rr_target2,2)):'—';
     const score=dir==='LONG'?d.signal.long_score:dir==='SHORT'?d.signal.short_score:'—';
-    document.getElementById('oppScore').textContent=score+' / '+(d.signal.quality?.grade||'—');
+    document.getElementById('oppScore').textContent=score+' / '+(d.signal.setup_grade||'—')+' · '+fmt(d.signal.confidence_pct,1)+'%';
 
     const p=d.collector.progress||{};
     const vc=d.collector.validation_counts||{};
@@ -208,11 +213,12 @@ async function load(){
     document.getElementById('winRate').textContent=o.win_rate_pct==null?'—':fmt(o.win_rate_pct,1)+'%';
     document.getElementById('pf').textContent=fmt(o.profit_factor,2);
     document.getElementById('expectancy').textContent=o.expectancy_r==null?'—':fmt(o.expectancy_r,3)+' R';
+    document.getElementById('outcomeRates').textContent=o.resolved?`${fmt(o.tp1_rate_pct,0)}% / ${fmt(o.tp2_rate_pct,0)}% / ${fmt(o.stop_rate_pct,0)}%`:'—';
     const passed=d.validation?.validation_gate?.all_gates_passed;
     document.getElementById('gates').innerHTML=passed?'<span class="long">PASSED</span>':'<span class="amber">NOT YET</span>';
 
     const hs=d.recent_setups||[];
-    document.getElementById('history').innerHTML=hs.length?hs.map(x=>`<tr><td>${x.created_at?new Date(x.created_at).toLocaleString():'—'}</td><td class="history-state ${x.direction==='LONG'?'long':'short'}">${x.direction||'—'}</td><td>${x.score??'—'}</td><td>${x.quality_grade||'—'}</td><td>${fmt(x.entry_center,2)}</td><td>${fmt(x.stop,2)}</td><td>${fmt(x.target1,2)}</td><td>${fmt(x.rr1,2)}</td><td>${x.outcome||'—'}</td></tr>`).join(''):'<tr><td colspan="9" class="muted">No captured setups yet.</td></tr>';
+    document.getElementById('history').innerHTML=hs.length?hs.map(x=>`<tr><td>${x.created_at?new Date(x.created_at).toLocaleString():'—'}</td><td class="history-state ${x.direction==='LONG'?'long':'short'}">${x.direction||'—'}</td><td>${x.score??'—'}</td><td>${x.quality_grade||'—'}</td><td>${x.setup_grade||'LEGACY'}</td><td>${x.confidence_pct==null?'—':fmt(x.confidence_pct,1)+'%'}</td><td>${fmt(x.entry_center,2)}</td><td>${fmt(x.stop,2)}</td><td>${fmt(x.target1,2)}</td><td>${fmt(x.rr1,2)}</td><td>${x.outcome||'—'}</td></tr>`).join(''):'<tr><td colspan="11" class="muted">No captured setups yet.</td></tr>';
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';

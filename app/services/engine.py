@@ -3,6 +3,7 @@ from app.config import settings
 from app.services.signal_quality import build_signal_quality
 from app.services.entry_engine import build_entry_decision
 from app.services.state_machine import transition
+from app.services.adaptive_quality import build_adaptive_assessment
 
 def _component(name: str, lp: int, sp: int, mx: int, detail: str) -> dict:
     return {"name": name, "long_points": lp, "short_points": sp, "max_points": mx, "detail": detail}
@@ -179,6 +180,15 @@ def calculate_signal(snapshot: dict) -> dict:
 
     entry = build_entry_decision(snapshot, direction) if direction in ("LONG", "SHORT") else None
 
+    adaptive = build_adaptive_assessment(
+        quality=quality,
+        components=c,
+        long_score=long_score,
+        short_score=short_score,
+        direction=direction,
+        timing_matches=timing_matches,
+    )
+
     state = transition(
         candidate_direction=direction,
         directional_score=directional_score,
@@ -207,6 +217,9 @@ def calculate_signal(snapshot: dict) -> dict:
         "market_bias": bias,
         "setup": "Cross-market momentum candidate" if direction != "NONE" else "None",
         "signal_quality": quality,
+        "adaptive_assessment": adaptive,
+        "confidence_pct": adaptive["confidence_pct"],
+        "setup_grade": adaptive["setup_grade"],
         "entry_decision": entry,
         "components": c,
         "blockers": blockers,
@@ -214,7 +227,7 @@ def calculate_signal(snapshot: dict) -> dict:
         "trade_plan": entry if candidate in ("LONG", "SHORT") else None,
         "paper_mode": True,
         "note": (
-            "V8.4 uses a state machine. A PAPER_SIGNAL exists only when score, cross-market "
+            "V9.2 adds adaptive confidence and A/B/C grading while retaining the state machine. "
             "quality, live CVD, timing and entry-zone conditions all align."
         ),
     }
