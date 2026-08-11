@@ -18,6 +18,9 @@ from app.services.market_source import get_kline_history_resilient
 from app.services.backtest import run_backtest, summarize
 from app.services.validation import walk_forward
 from app.services.dashboard import build_dashboard
+from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
+from app.services.validation_evaluator import validation_loop, evaluate_validation_once
+from app.services.validation_analytics import validation_report
 from app.services.push_storage import init_push_db, register_device, unregister_device
 from app.services.firebase_push import status as firebase_status, send_signal_payload
 from app.services.readiness import check_readiness
@@ -36,12 +39,15 @@ class PushUnregisterRequest(BaseModel):
 async def lifespan(app: FastAPI):
     init_db()
     init_push_db()
+    init_validation_db()
     ws_task = asyncio.create_task(run_bybit_trade_stream())
     outcome_task = asyncio.create_task(outcome_loop())
+    validation_task = asyncio.create_task(validation_loop())
     yield
     ws_task.cancel()
     outcome_task.cancel()
-    await asyncio.gather(ws_task, outcome_task, return_exceptions=True)
+    validation_task.cancel()
+    await asyncio.gather(ws_task, outcome_task, validation_task, return_exceptions=True)
 
 app = FastAPI(
     title=settings.app_name,
@@ -146,6 +152,12 @@ async def signal():
     try:
         snapshot = await build_market_snapshot()
         result = calculate_signal(snapshot)
+        captured, capture_reason = capture_setup(snapshot, result)
+        result["validation_capture"] = {
+            "captured": captured,
+            "reason": capture_reason,
+        }
+
         allowed, reason = should_store_candidate(settings.database_path, result)
         result["gate_reason"] = reason
 
@@ -218,6 +230,42 @@ async def dashboard():
         return await build_dashboard()
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Dashboard unavailable: {exc}") from exc
+
+
+@app.get("/api/v1/validation/report")
+async def validation_report_endpoint():
+    return validation_report()
+
+@app.get("/api/v1/validation/setups")
+async def validation_setups(limit: int = Query(default=50, ge=1, le=500)):
+    rows = recent_validation(limit)
+    return {"count": len(rows), "setups": rows}
+
+@app.post("/api/v1/validation/evaluate")
+async def validation_evaluate():
+    try:
+        return await evaluate_validation_once()
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Validation evaluation unavailable: {exc}") from exc
+
+@app.post("/api/v1/validation/capture-now")
+async def validation_capture_now():
+    try:
+        snapshot = await build_market_snapshot()
+        result = calculate_signal(snapshot)
+        captured, reason = capture_setup(snapshot, result)
+        return {
+            "captured": captured,
+            "reason": reason,
+            "state": result.get("state"),
+            "directional_bias": result.get("directional_bias"),
+            "long_score": result.get("long_score"),
+            "short_score": result.get("short_score"),
+            "quality": result.get("signal_quality"),
+            "entry_decision": result.get("entry_decision"),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Validation capture unavailable: {exc}") from exc
 
 @app.get("/api/v1/backtest")
 async def backtest(
