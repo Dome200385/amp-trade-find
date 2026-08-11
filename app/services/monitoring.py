@@ -14,12 +14,13 @@ async def build_monitoring_payload():
     snapshot = await build_market_snapshot()
     signal = calculate_signal(snapshot)
     collector = collector_status()
+    orderflow = snapshot.get("orderflow") or {}
     normalized_venues = (
-        snapshot.get("cross_exchange")
-        or (snapshot.get("orderflow") or {}).get("venues")
+        orderflow.get("venues")
         or {
-            k:(snapshot.get("orderflow") or {}).get(k,{})
+            k: orderflow.get(k, {})
             for k in ("bybit","binance","okx","kraken","coinbase")
+            if isinstance(orderflow.get(k), dict)
         }
     )
     return {
@@ -52,4 +53,9 @@ async def build_monitoring_payload():
         "collector": collector,
         "validation": validation_report(),
         "recent_setups": recent_validation(8),
+        "intelligence": build_intelligence(),
+        "regime_analytics": build_regime_analytics(),
+        "data_health": build_data_health(snapshot, collector, normalized_venues),
+        "learning_readiness": build_learning_readiness(),
+        "lifecycle_health": lifecycle_health(),
     }

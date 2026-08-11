@@ -28,3 +28,6 @@ API:
 0.9.5
 
 PAPER_MODE remains enabled.
+
+## Final correction
+The `/api/v1/monitoring` response now explicitly includes `intelligence`, `regime_analytics`, `data_health`, `learning_readiness`, and `lifecycle_health`. Per-venue health uses the orderflow venue objects rather than the aggregate cross_exchange consensus object.
