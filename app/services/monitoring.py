@@ -4,12 +4,16 @@ from app.services.engine import calculate_signal
 from app.services.validation_analytics import validation_report
 from app.services.validation_intelligence import build_intelligence
 from app.services.regime_analytics import build_regime_analytics
+from app.services.data_health import build_data_health
+from app.services.learning_readiness import build_learning_readiness
+from app.services.lifecycle_health import lifecycle_health
 from app.services.collector import collector_status
 from app.services.validation_storage import recent_validation
 
 async def build_monitoring_payload():
     snapshot = await build_market_snapshot()
     signal = calculate_signal(snapshot)
+    collector = collector_status()
     return {
         "api_version": settings.app_version,
         "strategy_version": settings.strategy_version,
@@ -37,7 +41,7 @@ async def build_monitoring_payload():
             "warnings": signal.get("warnings", []),
         },
         "venues": snapshot.get("cross_exchange", {}),
-        "collector": collector_status(),
+        "collector": collector,
         "validation": validation_report(),
         "recent_setups": recent_validation(8),
     }

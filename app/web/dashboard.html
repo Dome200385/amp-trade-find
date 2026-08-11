@@ -169,6 +169,30 @@
       </table>
     </div>
 
+    <div class="card span4">
+      <div class="label">Data Health</div>
+      <div class="med" id="dataHealthStatus">—</div>
+      <div class="row"><span class="muted">Live venues</span><span id="liveVenues">—</span></div>
+      <div class="row"><span class="muted">Collector age</span><span id="collectorAge">—</span></div>
+      <div class="row"><span class="muted">Source degraded</span><span id="sourceDegraded">—</span></div>
+    </div>
+
+    <div class="card span4">
+      <div class="label">Learning Readiness</div>
+      <div class="med" id="learningLevel">—</div>
+      <div class="row"><span class="muted">Resolved</span><span id="learningResolved">—</span></div>
+      <div class="row"><span class="muted">Usable at</span><span id="learningUsable">—</span></div>
+      <div class="row"><span class="muted">Strong at</span><span id="learningStrong">—</span></div>
+    </div>
+
+    <div class="card span4">
+      <div class="label">Lifecycle Health</div>
+      <div class="med" id="lifecycleStatus">—</div>
+      <div class="row"><span class="muted">Waiting</span><span id="lifeWaiting">—</span></div>
+      <div class="row"><span class="muted">Active</span><span id="lifeActive">—</span></div>
+      <div class="row"><span class="muted">Resolved</span><span id="lifeResolved">—</span></div>
+    </div>
+
     <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
@@ -291,6 +315,25 @@ async function load(){
        <td>${x.resolved}</td><td>${x.win_rate_pct==null?'—':fmt(x.win_rate_pct,0)+'%'}</td>
        <td>${x.profit_factor==null?'—':fmt(x.profit_factor,2)}</td><td>${x.expectancy_r==null?'—':fmt(x.expectancy_r,2)}</td></tr>`
     ).join('')||'<tr><td colspan="8" class="muted">New V9.4 feature samples are still being collected</td></tr>';
+
+
+    const dh=d.data_health||{};
+    document.getElementById('dataHealthStatus').innerHTML=dh.status==='HEALTHY'?'<span class="long">HEALTHY</span>':'<span class="amber">DEGRADED</span>';
+    document.getElementById('liveVenues').textContent=`${dh.live_venues??0} / ${dh.minimum_recommended_live_venues??3}`;
+    document.getElementById('collectorAge').textContent=dh.collector_age_seconds==null?'—':fmt(dh.collector_age_seconds,0)+'s';
+    document.getElementById('sourceDegraded').textContent=dh.source_degraded?'YES':'NO';
+
+    const lr=d.learning_readiness||{};
+    document.getElementById('learningLevel').textContent=lr.overall?.readiness||'—';
+    document.getElementById('learningResolved').textContent=lr.overall?.resolved??0;
+    document.getElementById('learningUsable').textContent=lr.overall?.thresholds?.usable??30;
+    document.getElementById('learningStrong').textContent=lr.overall?.thresholds?.strong??100;
+
+    const lh=d.lifecycle_health||{};
+    document.getElementById('lifecycleStatus').innerHTML=lh.healthy?'<span class="long">TRACKING</span>':'<span class="amber">CHECK</span>';
+    document.getElementById('lifeWaiting').textContent=lh.waiting_entry??0;
+    document.getElementById('lifeActive').textContent=lh.active??0;
+    document.getElementById('lifeResolved').textContent=lh.resolved??0;
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';

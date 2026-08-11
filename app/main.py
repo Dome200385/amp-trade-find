@@ -25,6 +25,9 @@ from app.services.collector import collector_loop, collector_cycle, collector_st
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
 from app.services.regime_analytics import build_regime_analytics
+from app.services.data_health import build_data_health
+from app.services.learning_readiness import build_learning_readiness
+from app.services.lifecycle_health import lifecycle_health
 from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
 from app.services.validation_evaluator import validation_loop, evaluate_validation_once
 from app.services.validation_analytics import validation_report
@@ -300,6 +303,15 @@ async def validation_auto_run_endpoint():
         raise HTTPException(status_code=502, detail=f"Auto validation scan unavailable: {exc}") from exc
 
 
+
+
+@app.get("/api/v1/learning/readiness")
+async def learning_readiness_endpoint():
+    return build_learning_readiness()
+
+@app.get("/api/v1/validation/lifecycle")
+async def validation_lifecycle_endpoint():
+    return lifecycle_health()
 
 @app.get("/api/v1/validation/regimes")
 async def validation_regimes_endpoint():
