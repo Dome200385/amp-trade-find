@@ -41,7 +41,11 @@ def init_db():
             "max_favorable_price": "REAL",
             "max_adverse_price": "REAL",
             "strategy_version": "TEXT",
-            "gate_reason": "TEXT"
+            "gate_reason": "TEXT",
+            "machine_state": "TEXT",
+            "entry_low": "REAL",
+            "entry_high": "REAL",
+            "invalidation": "TEXT"
         }
         for name, typ in migrations.items():
             if name not in cols:
@@ -187,3 +191,15 @@ def get_signal_detail(signal_id: str):
     except Exception:
         out["snapshot"] = {}
     return out
+
+
+def latest_signal_state():
+    with _connect() as db:
+        row = db.execute("""
+            SELECT signal_id, created_at, candidate, state, long_score, short_score,
+                   market_bias, outcome, strategy_version
+            FROM signals
+            ORDER BY created_at DESC
+            LIMIT 1
+        """).fetchone()
+    return dict(row) if row else None

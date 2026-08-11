@@ -1,39 +1,21 @@
 from datetime import datetime, timezone
 from app.config import settings
 from app.services.signal_quality import build_signal_quality
+from app.services.entry_engine import build_entry_decision
+from app.services.state_machine import transition
 
 def _component(name: str, lp: int, sp: int, mx: int, detail: str) -> dict:
     return {"name": name, "long_points": lp, "short_points": sp, "max_points": mx, "detail": detail}
-
-def _trade_plan(snapshot: dict, direction: str) -> dict:
-    price = snapshot["price"]
-    atr = max(snapshot["tf_15m"]["atr14"], price * 0.001)
-    stop_distance = atr * 1.15
-    if direction == "LONG":
-        stop, t1, t2 = price - stop_distance, price + stop_distance * 1.5, price + stop_distance * 2.2
-    else:
-        stop, t1, t2 = price + stop_distance, price - stop_distance * 1.5, price - stop_distance * 2.2
-
-    return {
-        "direction": direction,
-        "entry": round(price, 2),
-        "stop": round(stop, 2),
-        "target1": round(t1, 2),
-        "target2": round(t2, 2),
-        "rr_target1": 1.5,
-        "rr_target2": 2.2,
-        "validity_minutes": 15,
-    }
 
 def calculate_signal(snapshot: dict) -> dict:
     t5, t15, t1h = snapshot["tf_5m"], snapshot["tf_15m"], snapshot["tf_1h"]
     of, x = snapshot["orderflow"], snapshot["cross_exchange"]
     live, event = snapshot["live_cvd"], snapshot["event_risk"]
     quality = build_signal_quality(x, live)
-    price = snapshot["price"]
+    price = float(snapshot["price"])
     c = []
 
-    # Technical layer.
+    # ----- Trend & timing -----
     if t1h["ema20"] > t1h["ema50"]:
         c.append(_component("1H trend", 10, 0, 10, "Bullish"))
     elif t1h["ema20"] < t1h["ema50"]:
@@ -55,7 +37,7 @@ def calculate_signal(snapshot: dict) -> dict:
     else:
         c.append(_component("VWAP", 0, 0, 8, "At VWAP"))
 
-    rsi = t15["rsi14"]
+    rsi = float(t15["rsi14"])
     if 52 <= rsi <= 70:
         c.append(_component("RSI14", 5, 0, 5, f"{rsi:.1f} bullish"))
     elif 30 <= rsi <= 48:
@@ -63,7 +45,7 @@ def calculate_signal(snapshot: dict) -> dict:
     else:
         c.append(_component("RSI14", 0, 0, 5, f"{rsi:.1f} mixed/extreme"))
 
-    vr = t15["volume_ratio"]
+    vr = float(t15["volume_ratio"])
     if vr >= 1.15 and price > t15["ema20"]:
         c.append(_component("Volume", 5, 0, 5, f"{vr:.2f}x"))
     elif vr >= 1.15 and price < t15["ema20"]:
@@ -71,14 +53,17 @@ def calculate_signal(snapshot: dict) -> dict:
     else:
         c.append(_component("Volume", 0, 0, 5, f"{vr:.2f}x"))
 
-    if t5["ema20"] > t5["ema50"] and price > t5["vwap"]:
+    timing_long = t5["ema20"] > t5["ema50"] and price > t5["vwap"]
+    timing_short = t5["ema20"] < t5["ema50"] and price < t5["vwap"]
+
+    if timing_long:
         c.append(_component("5M timing", 8, 0, 8, "Long confirms"))
-    elif t5["ema20"] < t5["ema50"] and price < t5["vwap"]:
+    elif timing_short:
         c.append(_component("5M timing", 0, 8, 8, "Short confirms"))
     else:
         c.append(_component("5M timing", 0, 0, 8, "Mixed"))
 
-    # Primary-source microstructure.
+    # ----- Microstructure -----
     dp = float(of.get("taker_delta_pct") or 0)
     if dp >= 8:
         c.append(_component("Primary taker delta", 10, 0, 10, f"+{dp:.1f}%"))
@@ -95,7 +80,6 @@ def calculate_signal(snapshot: dict) -> dict:
     else:
         c.append(_component("Primary orderbook", 0, 0, 6, f"{imb:.2f}"))
 
-    # OI + funding are derivatives context, not mandatory when primary is spot.
     oi_chg = of.get("oi_change_pct")
     if oi_chg is not None and oi_chg >= .08 and dp > 0:
         c.append(_component("OI confirmation", 5, 0, 5, f"+{oi_chg:.3f}% with buying"))
@@ -114,7 +98,7 @@ def calculate_signal(snapshot: dict) -> dict:
     else:
         c.append(_component("Funding short sanity", 0, 0, 2, str(funding)))
 
-    # Cross-market quality carries more weight than one venue.
+    # ----- Cross-market quality -----
     if quality["cross_market_long"] and quality["grade"] == "HIGH":
         c.append(_component(
             "Spot + derivatives agreement", 20, 0, 20,
@@ -128,16 +112,15 @@ def calculate_signal(snapshot: dict) -> dict:
             f'Spot SHORT {quality["spot"]["short_confirmations"]}'
         ))
     elif x["consensus"] == "LONG" and quality["grade"] == "MEDIUM":
-        c.append(_component("Cross-exchange consensus", 10, 0, 20, "LONG but not cross-market HIGH quality"))
+        c.append(_component("Cross-exchange consensus", 10, 0, 20, "LONG but cross-market confirmation incomplete"))
     elif x["consensus"] == "SHORT" and quality["grade"] == "MEDIUM":
-        c.append(_component("Cross-exchange consensus", 0, 10, 20, "SHORT but not cross-market HIGH quality"))
+        c.append(_component("Cross-exchange consensus", 0, 10, 20, "SHORT but cross-market confirmation incomplete"))
     else:
         c.append(_component(
             "Cross-exchange consensus", 0, 0, 20,
             f'{x["consensus"]}; quality {quality["grade"]}; {x["available_venues"]} venues'
         ))
 
-    # Live Bybit CVD: hard confirmation, not score inflation.
     cvd_direction = quality["live_cvd_direction"]
     cvd_pct = quality["live_cvd_pct"]
     if cvd_direction == "LONG":
@@ -150,48 +133,19 @@ def calculate_signal(snapshot: dict) -> dict:
     long_score = min(100, sum(z["long_points"] for z in c))
     short_score = min(100, sum(z["short_points"] for z in c))
 
+    # Directional bias.
     if long_score - short_score >= 18 and long_score >= 50:
         bias = "BULLISH"
+        direction = "LONG"
+        directional_score = long_score
     elif short_score - long_score >= 18 and short_score >= 50:
         bias = "BEARISH"
+        direction = "SHORT"
+        directional_score = short_score
     else:
         bias = "NEUTRAL"
-
-    # V8.3 requires HIGH cross-market agreement for an actual paper candidate.
-    mandatory_long = (
-        bias == "BULLISH"
-        and quality["grade"] == "HIGH"
-        and quality["cross_market_long"]
-        and quality["live_cvd_ready"]
-        and cvd_direction == "LONG"
-        and t5["ema20"] > t5["ema50"]
-        and not event.get("blocked", False)
-    )
-    mandatory_short = (
-        bias == "BEARISH"
-        and quality["grade"] == "HIGH"
-        and quality["cross_market_short"]
-        and quality["live_cvd_ready"]
-        and cvd_direction == "SHORT"
-        and t5["ema20"] < t5["ema50"]
-        and not event.get("blocked", False)
-    )
-
-    candidate = "NONE"
-    if long_score >= settings.signal_threshold and mandatory_long:
-        candidate = "LONG"
-    elif short_score >= settings.signal_threshold and mandatory_short:
-        candidate = "SHORT"
-
-    top = max(long_score, short_score)
-    if candidate != "NONE":
-        state = "SETUP_FORMING"
-    elif top >= settings.setup_threshold and quality["grade"] in ("HIGH", "MEDIUM"):
-        state = "SETUP_FORMING"
-    elif top >= settings.watch_threshold:
-        state = "MARKET_WATCH"
-    else:
-        state = "NO_TRADE"
+        direction = "NONE"
+        directional_score = max(long_score, short_score)
 
     blockers = ["PAPER_MODE", "BACKTEST_NOT_VALIDATED"]
     if not quality["live_cvd_ready"]:
@@ -209,32 +163,58 @@ def calculate_signal(snapshot: dict) -> dict:
     if snapshot["spread_bps"] > 5:
         blockers.append("WIDE_SPREAD")
 
-    # Source fallback is now informational, never a blocker by itself.
     warnings = []
     if snapshot.get("source_degraded"):
         warnings.append(f'PRIMARY_SOURCE_FALLBACK_{snapshot.get("primary_source","UNKNOWN")}')
-    for venue_name, err in (snapshot.get("source_errors") or {}).items():
+    for venue_name in (snapshot.get("source_errors") or {}).keys():
         warnings.append(f'{venue_name}_REST_UNAVAILABLE')
+
+    cross_confirm = (
+        quality["cross_market_long"] if direction == "LONG"
+        else quality["cross_market_short"] if direction == "SHORT"
+        else False
+    )
+    cvd_matches = cvd_direction == direction if direction in ("LONG", "SHORT") else False
+    timing_matches = timing_long if direction == "LONG" else timing_short if direction == "SHORT" else False
+
+    entry = build_entry_decision(snapshot, direction) if direction in ("LONG", "SHORT") else None
+
+    state = transition(
+        candidate_direction=direction,
+        directional_score=directional_score,
+        quality_grade=quality["grade"],
+        cross_market_confirmed=cross_confirm,
+        live_cvd_matches=cvd_matches,
+        timing_matches=timing_matches,
+        event_blocked=bool(event.get("blocked", False)),
+        blockers=blockers,
+        entry_decision=entry,
+    )
+
+    candidate = direction if state["state"] == "PAPER_SIGNAL" else "NONE"
 
     signal_id = "FIND-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
     return {
         "signal_id": signal_id,
         "symbol": snapshot["symbol"],
         "price": price,
-        "state": state,
+        "state": state["state"],
+        "state_machine": state,
         "candidate_opportunity": candidate,
+        "directional_bias": direction,
         "long_score": int(long_score),
         "short_score": int(short_score),
         "market_bias": bias,
-        "setup": "Cross-market momentum candidate" if bias != "NEUTRAL" else "None",
+        "setup": "Cross-market momentum candidate" if direction != "NONE" else "None",
         "signal_quality": quality,
+        "entry_decision": entry,
         "components": c,
         "blockers": blockers,
         "warnings": warnings,
-        "trade_plan": _trade_plan(snapshot, candidate) if candidate in ("LONG", "SHORT") else None,
+        "trade_plan": entry if candidate in ("LONG", "SHORT") else None,
         "paper_mode": True,
         "note": (
-            "V8.3 requires independent spot + derivatives confirmation plus matching live CVD "
-            "before a paper LONG/SHORT candidate can be created."
+            "V8.4 uses a state machine. A PAPER_SIGNAL exists only when score, cross-market "
+            "quality, live CVD, timing and entry-zone conditions all align."
         ),
     }

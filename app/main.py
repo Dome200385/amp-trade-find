@@ -9,7 +9,7 @@ from app.config import settings
 from app.models.schemas import MarketSnapshot, SignalResponse
 from app.services.market import build_market_snapshot
 from app.services.engine import calculate_signal
-from app.services.storage import init_db, save_signal, recent_signals, performance_stats, get_signal_detail
+from app.services.storage import init_db, save_signal, recent_signals, performance_stats, get_signal_detail, latest_signal_state
 from app.services.live_cvd import run_bybit_trade_stream, live_cvd
 from app.services.outcome_evaluator import outcome_loop, evaluate_active_once
 from app.services.event_risk import event_risk
@@ -171,6 +171,26 @@ async def signal_detail(signal_id: str):
     if row is None:
         raise HTTPException(status_code=404, detail="Signal not found")
     return row
+
+
+@app.get("/api/v1/state")
+async def current_state():
+    try:
+        snapshot = await build_market_snapshot()
+        result = calculate_signal(snapshot)
+        return {
+            "state": result.get("state"),
+            "state_machine": result.get("state_machine"),
+            "directional_bias": result.get("directional_bias"),
+            "long_score": result.get("long_score"),
+            "short_score": result.get("short_score"),
+            "signal_quality": result.get("signal_quality"),
+            "entry_decision": result.get("entry_decision"),
+            "blockers": result.get("blockers"),
+            "warnings": result.get("warnings"),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"State engine unavailable: {exc}")
 
 @app.get("/api/v1/performance")
 async def performance():

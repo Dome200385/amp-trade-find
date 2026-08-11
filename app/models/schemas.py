@@ -92,11 +92,14 @@ class SignalResponse(BaseModel):
     signal_id: str
     symbol: str
     price: float
-    state: Literal["NO_TRADE", "MARKET_WATCH", "SETUP_FORMING"]
+    state: Literal["NO_TRADE", "WATCH", "SETUP_FORMING", "READY", "PAPER_SIGNAL"]
     candidate_opportunity: Literal["NONE", "LONG", "SHORT"]
+    directional_bias: Literal["NONE", "LONG", "SHORT"]
     long_score: int
     short_score: int
     market_bias: Literal["BULLISH", "NEUTRAL", "BEARISH"]
+    state_machine: dict = {}
+    entry_decision: dict | None = None
     setup: str
     components: list[ScoreComponent]
     blockers: list[str]
