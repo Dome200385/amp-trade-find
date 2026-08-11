@@ -38,5 +38,6 @@ async def build_monitoring_payload():
         "venues": snapshot.get("cross_exchange", {}),
         "collector": collector_status(),
         "validation": validation_report(),
+        "intelligence": build_intelligence(),
         "recent_setups": recent_validation(8),
     }
