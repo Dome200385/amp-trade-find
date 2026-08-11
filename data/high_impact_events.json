@@ -1,0 +1,30 @@
+{
+  "notes": [
+    "V4 event blocker is configuration-driven.",
+    "FOMC dates below are seeded from the Federal Reserve 2026 calendar.",
+    "Before production, extend this file with CPI, PCE, NFP and other chosen high-impact releases."
+  ],
+  "events": [
+    {
+      "name": "FOMC Rate Decision / Statement",
+      "datetime": "2026-09-16T14:00:00-04:00",
+      "block_minutes_before": 60,
+      "block_minutes_after": 30,
+      "source": "Federal Reserve 2026 FOMC calendar"
+    },
+    {
+      "name": "FOMC Rate Decision / Statement",
+      "datetime": "2026-10-28T14:00:00-04:00",
+      "block_minutes_before": 60,
+      "block_minutes_after": 30,
+      "source": "Federal Reserve 2026 FOMC calendar"
+    },
+    {
+      "name": "FOMC Rate Decision / Statement",
+      "datetime": "2026-12-09T14:00:00-05:00",
+      "block_minutes_before": 60,
+      "block_minutes_after": 30,
+      "source": "Federal Reserve 2026 FOMC calendar"
+    }
+  ]
+}
