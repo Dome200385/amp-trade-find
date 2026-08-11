@@ -319,7 +319,7 @@ async function load(){
 
     const dh=d.data_health||{};
     document.getElementById('dataHealthStatus').innerHTML=dh.status==='HEALTHY'?'<span class="long">HEALTHY</span>':'<span class="amber">DEGRADED</span>';
-    document.getElementById('liveVenues').textContent=`${dh.live_venues??0} / ${dh.minimum_recommended_live_venues??3}`;
+    document.getElementById('liveVenues').textContent=`${dh.live_venues ?? 0} / ${dh.minimum_recommended_live_venues ?? 3}`;
     document.getElementById('collectorAge').textContent=dh.collector_age_seconds==null?'—':fmt(dh.collector_age_seconds,0)+'s';
     document.getElementById('sourceDegraded').textContent=dh.source_degraded?'YES':'NO';
 
