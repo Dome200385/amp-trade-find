@@ -1,6 +1,6 @@
 from app.config import settings
-from app.services.regime_analytics import build_regime_analytics
 from app.services.validation_intelligence import build_intelligence
+from app.services.regime_analytics import build_regime_analytics
 
 def _level(n):
     if n >= settings.learning_min_samples_strong:
@@ -12,16 +12,17 @@ def _level(n):
     return "INSUFFICIENT"
 
 def build_learning_readiness():
-    regime = build_regime_analytics()
     intel = build_intelligence()
+    regime = build_regime_analytics()
 
+    # Source of truth: validation intelligence overall resolved.
     resolved = int((intel.get("overall") or {}).get("resolved") or 0)
-    grade = _level(resolved)
+    readiness = _level(resolved)
 
-    regime_readiness = []
+    regime_rows = []
     for name, stats in (regime.get("dimensions", {}).get("market_regime", {}) or {}).items():
         n = int(stats.get("resolved") or 0)
-        regime_readiness.append({
+        regime_rows.append({
             "regime": name,
             "resolved": n,
             "readiness": _level(n),
@@ -29,24 +30,24 @@ def build_learning_readiness():
             "profit_factor": stats.get("profit_factor"),
             "win_rate_pct": stats.get("win_rate_pct"),
         })
-    regime_readiness.sort(key=lambda x:x["resolved"], reverse=True)
+    regime_rows.sort(key=lambda x:(x["resolved"], x["regime"]), reverse=True)
 
     return {
         "overall": {
             "resolved": resolved,
-            "readiness": grade,
+            "readiness": readiness,
             "thresholds": {
                 "early": settings.learning_min_samples_warning,
                 "usable": settings.learning_min_samples_usable,
                 "strong": settings.learning_min_samples_strong,
-            },
+            }
         },
-        "regimes": regime_readiness[:12],
+        "regimes": regime_rows[:12],
         "recommendation": (
             "Do not optimize strategy rules yet."
-            if grade in ("INSUFFICIENT","EARLY")
-            else "Begin hypothesis testing, but keep changes isolated and paper-only."
-            if grade == "USABLE"
-            else "Data volume is large enough for controlled strategy refinement."
+            if readiness in ("INSUFFICIENT","EARLY")
+            else "Begin controlled hypothesis testing only in PAPER_MODE."
+            if readiness == "USABLE"
+            else "Sample size supports controlled strategy refinement."
         ),
     }

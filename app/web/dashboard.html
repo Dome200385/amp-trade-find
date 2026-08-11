@@ -324,7 +324,7 @@ async function load(){
     document.getElementById('sourceDegraded').textContent=dh.source_degraded?'YES':'NO';
 
     const lr=d.learning_readiness||{};
-    document.getElementById('learningLevel').textContent=lr.overall?.readiness||'—';
+    document.getElementById('learningLevel').textContent=lr.overall?.readiness||'INSUFFICIENT';
     document.getElementById('learningResolved').textContent=lr.overall?.resolved??0;
     document.getElementById('learningUsable').textContent=lr.overall?.thresholds?.usable??30;
     document.getElementById('learningStrong').textContent=lr.overall?.thresholds?.strong??100;

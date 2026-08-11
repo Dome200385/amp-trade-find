@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     min_validated_samples: int = 200
     max_signal_validity_minutes: int = 15
 
-    strategy_version: str = "FIND-V9.5-1"
+    strategy_version: str = "FIND-V9.5.1"
     signal_cooldown_minutes: int = 20
     signal_dedupe_price_pct: float = 0.20
 
