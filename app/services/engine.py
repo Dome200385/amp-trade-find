@@ -54,14 +54,14 @@ def calculate_signal(snapshot: dict) -> dict:
     else: c.append(_component("5M timing", 0, 0, 8, "Mixed"))
 
     dp = of["taker_delta_pct"]
-    if dp >= 8: c.append(_component("Bybit taker delta", 12, 0, 12, f"+{dp:.1f}%"))
-    elif dp <= -8: c.append(_component("Bybit taker delta", 0, 12, 12, f"{dp:.1f}%"))
-    else: c.append(_component("Bybit taker delta", 0, 0, 12, f"{dp:.1f}%"))
+    if dp >= 8: c.append(_component("Primary taker delta", 12, 0, 12, f"+{dp:.1f}%"))
+    elif dp <= -8: c.append(_component("Primary taker delta", 0, 12, 12, f"{dp:.1f}%"))
+    else: c.append(_component("Primary taker delta", 0, 0, 12, f"{dp:.1f}%"))
 
     imb = of["orderbook_imbalance"]
-    if imb >= .10: c.append(_component("Bybit orderbook", 8, 0, 8, f"{imb:.2f}"))
-    elif imb <= -.10: c.append(_component("Bybit orderbook", 0, 8, 8, f"{imb:.2f}"))
-    else: c.append(_component("Bybit orderbook", 0, 0, 8, f"{imb:.2f}"))
+    if imb >= .10: c.append(_component("Primary orderbook", 8, 0, 8, f"{imb:.2f}"))
+    elif imb <= -.10: c.append(_component("Primary orderbook", 0, 8, 8, f"{imb:.2f}"))
+    else: c.append(_component("Primary orderbook", 0, 0, 8, f"{imb:.2f}"))
 
     oi_chg = of.get("oi_change_pct")
     if oi_chg is not None and oi_chg >= .08 and dp > 0:
@@ -136,6 +136,7 @@ def calculate_signal(snapshot: dict) -> dict:
     if event.get("blocked", False):
         blockers.append("HIGH_IMPACT_EVENT")
     if x["available_venues"] < 2: blockers.append("INSUFFICIENT_VENUES")
+    if snapshot.get("source_degraded"): blockers.append(f'PRIMARY_SOURCE_{snapshot.get("primary_source","UNKNOWN")}')
     if snapshot["spread_bps"] > 5: blockers.append("WIDE_SPREAD")
 
     signal_id = "FIND-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")

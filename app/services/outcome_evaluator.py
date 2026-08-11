@@ -1,6 +1,6 @@
 import asyncio
 from datetime import datetime, timezone
-from app.services.bybit import fetch_last_price
+from app.services.market_source import fetch_last_price_resilient
 from app.services.storage import active_signals, update_outcome
 
 def evaluate_one(row: dict, price: float):
@@ -37,7 +37,7 @@ async def evaluate_active_once():
     if not rows:
         return {"checked": 0, "price": None}
 
-    price = await fetch_last_price()
+    price = await fetch_last_price_resilient()
     for row in rows:
         outcome = evaluate_one(row, price)
         update_outcome(row["signal_id"], outcome, price)

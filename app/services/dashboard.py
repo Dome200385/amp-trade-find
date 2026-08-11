@@ -30,6 +30,9 @@ async def build_dashboard():
         "paper_mode": settings.paper_mode,
         "market": {
             "symbol": snapshot["symbol"],
+            "primary_source": snapshot.get("primary_source"),
+            "source_degraded": snapshot.get("source_degraded", False),
+            "source_errors": snapshot.get("source_errors", {}),
             "price": snapshot["price"],
             "change_24h_pct": snapshot.get("change_24h_pct"),
             "funding_rate": snapshot.get("funding_rate"),

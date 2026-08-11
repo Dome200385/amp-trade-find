@@ -50,6 +50,9 @@ class OrderFlowSnapshot(BaseModel):
 
 class MarketSnapshot(BaseModel):
     symbol: str
+    primary_source: str
+    source_degraded: bool
+    source_errors: dict[str, str]
     price: float
     bid: float
     ask: float

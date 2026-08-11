@@ -14,7 +14,7 @@ from app.services.live_cvd import run_bybit_trade_stream, live_cvd
 from app.services.outcome_evaluator import outcome_loop, evaluate_active_once
 from app.services.event_risk import event_risk
 from app.services.signal_gate import should_store_candidate
-from app.services.bybit import get_kline_history
+from app.services.market_source import get_kline_history_resilient
 from app.services.backtest import run_backtest, summarize
 from app.services.validation import walk_forward
 from app.services.dashboard import build_dashboard
@@ -119,6 +119,21 @@ async def push_test(x_admin_key: str | None = Header(default=None)):
     }
     return send_signal_payload(payload)
 
+
+@app.get("/api/v1/sources/status")
+async def sources_status():
+    try:
+        snapshot = await build_market_snapshot()
+        return {
+            "primary_source": snapshot.get("primary_source"),
+            "source_degraded": snapshot.get("source_degraded"),
+            "source_errors": snapshot.get("source_errors", {}),
+            "available_venues": snapshot.get("cross_exchange", {}).get("available_venues"),
+            "live_cvd_connected": snapshot.get("live_cvd", {}).get("connected"),
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Source status unavailable: {exc}")
+
 @app.get("/api/v1/market/snapshot", response_model=MarketSnapshot)
 async def market_snapshot():
     try:
@@ -190,7 +205,7 @@ async def backtest(
     candles: int = Query(default=1000, ge=200, le=1000),
 ):
     try:
-        rows = await get_kline_history(interval=interval, limit=candles)
+        rows = await get_kline_history_resilient(interval=interval, limit=candles)
         trades, max_dd = run_backtest(rows)
         stats = summarize(trades, max_dd)
         return {
@@ -217,7 +232,7 @@ async def validation_walk_forward(
     candles: int = Query(default=1000, ge=300, le=1000),
 ):
     try:
-        rows = await get_kline_history(interval=interval, limit=candles)
+        rows = await get_kline_history_resilient(interval=interval, limit=candles)
         result = walk_forward(rows)
         result["strategy_version"] = settings.strategy_version
         result["symbol"] = settings.symbol

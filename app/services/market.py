@@ -1,5 +1,5 @@
 from app.config import settings
-from app.services.bybit import fetch_market_bundle
+from app.services.market_source import fetch_market_bundle_resilient
 from app.services.indicators import build_indicators
 from app.services.orderflow import build_orderflow
 from app.services.cross_exchange import build_cross_exchange
@@ -7,8 +7,10 @@ from app.services.live_cvd import live_cvd
 from app.services.event_risk import event_risk
 
 async def build_market_snapshot() -> dict:
-    bundle = await fetch_market_bundle()
+    bundle = await fetch_market_bundle_resilient()
     ticker = bundle["ticker"]
+    primary_source = bundle.get("source", "UNKNOWN")
+    source_errors = bundle.get("source_errors", {})
 
     bid = float(ticker.get("bid1Price") or 0)
     ask = float(ticker.get("ask1Price") or 0)
@@ -20,11 +22,18 @@ async def build_market_snapshot() -> dict:
     oi = ticker.get("openInterest")
     chg = ticker.get("price24hPcnt")
 
-    orderflow = build_orderflow(bundle["trades"], bundle["orderbook"], bundle["oi"])
-    cross_exchange = await build_cross_exchange(orderflow)
+    if bundle.get("orderflow") is not None:
+        orderflow = bundle["orderflow"]
+    else:
+        orderflow = build_orderflow(bundle["trades"], bundle["orderbook"], bundle["oi"])
+
+    cross_exchange = await build_cross_exchange(orderflow, primary_source, source_errors)
 
     return {
         "symbol": settings.symbol,
+        "primary_source": primary_source,
+        "source_degraded": primary_source != "BYBIT",
+        "source_errors": source_errors,
         "price": round(price, 2),
         "bid": round(bid, 2),
         "ask": round(ask, 2),
