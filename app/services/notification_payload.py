@@ -44,5 +44,7 @@ def build_notification_payload(signal: dict, snapshot: dict) -> dict:
         "short_score": signal.get("short_score"),
         "trade_plan": plan,
         "blockers": signal.get("blockers", []),
+        "warnings": signal.get("warnings", []),
+        "signal_quality": signal.get("signal_quality", {}),
         "deep_link": f'amptradefind://signal/{signal.get("signal_id","")}',
     }

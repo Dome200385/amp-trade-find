@@ -6,10 +6,9 @@ from app.services.storage import performance_stats, recent_signals
 from app.services.notification_payload import build_notification_payload
 
 def _fmt_event(event_risk: dict) -> dict:
-    nxt = event_risk.get("next_event")
     return {
         "blocked": bool(event_risk.get("blocked", False)),
-        "next_event": nxt,
+        "next_event": event_risk.get("next_event"),
         "active_events": event_risk.get("active_events", []),
     }
 
@@ -46,14 +45,17 @@ async def build_dashboard():
             "long_score": signal["long_score"],
             "short_score": signal["short_score"],
             "setup": signal["setup"],
+            "quality": signal.get("signal_quality", {}),
             "blockers": signal["blockers"],
+            "warnings": signal.get("warnings", []),
             "trade_plan": signal.get("trade_plan"),
             "components": signal.get("components", []),
         },
         "notification": build_notification_payload(signal, snapshot),
         "orderflow": {
-            "bybit_delta_pct": snapshot["orderflow"]["taker_delta_pct"],
-            "bybit_orderbook_imbalance": snapshot["orderflow"]["orderbook_imbalance"],
+            "primary_source": snapshot.get("primary_source"),
+            "primary_delta_pct": snapshot["orderflow"]["taker_delta_pct"],
+            "primary_orderbook_imbalance": snapshot["orderflow"]["orderbook_imbalance"],
             "oi_change_pct": snapshot["orderflow"].get("oi_change_pct"),
             "cvd_5m_pct": cvd5.get("delta_pct"),
             "cvd_5m_btc": cvd5.get("cvd_btc"),
@@ -75,5 +77,5 @@ async def build_dashboard():
         "event_risk": _fmt_event(snapshot["event_risk"]),
         "performance": perf,
         "recent_signals": history,
-        "disclaimer": "Paper-analysis system. Scores are model outputs, not guaranteed probabilities."
+        "disclaimer": "Paper-analysis system. FIND Score is not a guaranteed probability."
     }

@@ -100,6 +100,8 @@ class SignalResponse(BaseModel):
     setup: str
     components: list[ScoreComponent]
     blockers: list[str]
+    warnings: list[str] = []
+    signal_quality: dict = {}
     trade_plan: TradePlan | None = None
     paper_mode: bool
     note: str
