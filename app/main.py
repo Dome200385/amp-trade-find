@@ -18,6 +18,7 @@ from app.services.market_source import get_kline_history_resilient
 from app.services.backtest import run_backtest, summarize
 from app.services.validation import walk_forward
 from app.services.dashboard import build_dashboard
+from app.services.persistence import ensure_persistent_storage, persistence_status
 from app.services.validation_storage import init_validation_db, capture_setup, recent_validation
 from app.services.validation_evaluator import validation_loop, evaluate_validation_once
 from app.services.validation_analytics import validation_report
@@ -38,6 +39,7 @@ class PushUnregisterRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_persistent_storage()
     init_db()
     init_push_db()
     init_validation_db()
@@ -150,6 +152,7 @@ async def version_info():
         "api_version": settings.app_version,
         "strategy_version": settings.strategy_version,
         "paper_mode": settings.paper_mode,
+        "database_path": settings.database_path,
     }
 
 @app.get("/api/v1/market/snapshot", response_model=MarketSnapshot)
@@ -244,6 +247,11 @@ async def dashboard():
         raise HTTPException(status_code=502, detail=f"Dashboard unavailable: {exc}") from exc
 
 
+
+
+@app.get("/api/v1/persistence/status")
+async def persistence_status_endpoint():
+    return persistence_status()
 
 @app.get("/api/v1/validation/auto/status")
 async def validation_auto_status_endpoint():

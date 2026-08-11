@@ -2,6 +2,7 @@ import sqlite3
 from app.config import settings
 from app.services.live_cvd import live_cvd
 from app.services.firebase_push import status as push_status
+from app.services.persistence import persistence_status
 
 def check_readiness():
     db_ok = False
@@ -26,4 +27,5 @@ def check_readiness():
             "last_error": cvd.get("last_error"),
         },
         "push": push_status(),
+        "persistence": persistence_status(),
     }

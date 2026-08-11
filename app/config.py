@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "AMP TRADE FIND"
-    app_version: str = "0.8.7"
+    app_version: str = "0.8.8"
 
     bybit_base_url: str = "https://api.bybit.com"
     bybit_ws_linear_url: str = "wss://stream.bybit.com/v5/public/linear"
@@ -21,14 +21,16 @@ class Settings(BaseSettings):
     setup_threshold: int = 70
     watch_threshold: int = 55
 
-    database_path: str = "amp_find_signals.db"
+    database_path: str = "/var/data/amp_trade_find.db"
+    persistent_data_dir: str = "/var/data"
+    persistent_probe_file: str = "/var/data/amp_find_persistence_probe.json"
     event_file: str = "data/high_impact_events.json"
 
     paper_mode: bool = True
     min_validated_samples: int = 200
     max_signal_validity_minutes: int = 15
 
-    strategy_version: str = "FIND-V8.7-1"
+    strategy_version: str = "FIND-V8.8-1"
     signal_cooldown_minutes: int = 20
     signal_dedupe_price_pct: float = 0.20
 
