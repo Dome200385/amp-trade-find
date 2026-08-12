@@ -7,6 +7,7 @@ from app.services.regime_analytics import build_regime_analytics
 from app.services.data_health import build_data_health
 from app.services.learning_readiness import build_learning_readiness
 from app.services.lifecycle_health import lifecycle_health
+from app.services.learning_funnel import funnel_stats
 from app.services.collector import collector_status
 from app.services.validation_storage import recent_validation
 
@@ -58,6 +59,7 @@ async def build_monitoring_payload():
         "data_health": build_data_health(snapshot, collector, normalized_venues),
         "learning_readiness": build_learning_readiness(),
         "lifecycle_health": lifecycle_health(),
+        "learning_funnel": funnel_stats(24),
         "validation_acceleration": {
             "enabled": settings.learning_capture_enabled,
             "learning_min_state": settings.learning_capture_min_state,

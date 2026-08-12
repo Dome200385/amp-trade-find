@@ -21,6 +21,7 @@ from app.services.validation import walk_forward
 from app.services.dashboard import build_dashboard
 from app.services.persistence import ensure_persistent_storage, persistence_status
 from app.services.collector_storage import init_collector_db, collector_stats
+from app.services.learning_funnel import init_learning_funnel_db, funnel_stats
 from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI):
     init_push_db()
     init_validation_db()
     init_collector_db()
+    init_learning_funnel_db()
     ws_task = asyncio.create_task(run_bybit_trade_stream())
     outcome_task = asyncio.create_task(outcome_loop())
     validation_task = asyncio.create_task(validation_loop())
@@ -304,6 +306,11 @@ async def validation_auto_run_endpoint():
 
 
 
+
+
+@app.get("/api/v1/learning/funnel")
+async def learning_funnel_endpoint(hours: int = Query(default=24, ge=1, le=720)):
+    return funnel_stats(hours)
 
 @app.get("/api/v1/learning/readiness")
 async def learning_readiness_endpoint():

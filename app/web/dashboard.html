@@ -194,6 +194,18 @@
     </div>
 
     <div class="card span12">
+      <div class="label">Learning Funnel · 24h</div>
+      <div class="grid" style="margin-top:10px">
+        <div class="card span3"><div class="label">Scans</div><div class="med" id="funnelScans">—</div></div>
+        <div class="card span3"><div class="label">Candidates</div><div class="med" id="funnelCandidates">—</div><div class="muted" id="funnelCandidateRate">—</div></div>
+        <div class="card span3"><div class="label">Learning Captures</div><div class="med" id="funnelLearning">—</div></div>
+        <div class="card span3"><div class="label">Strict Captures</div><div class="med" id="funnelStrict">—</div></div>
+      </div>
+      <div class="row"><span class="muted">Rejected noise</span><span id="funnelRejected">—</span></div>
+      <div class="row"><span class="muted">Top learning rejection</span><span id="funnelTopReject">—</span></div>
+    </div>
+
+    <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
@@ -334,6 +346,17 @@ async function load(){
     document.getElementById('lifeWaiting').textContent=lh.waiting_entry??0;
     document.getElementById('lifeActive').textContent=lh.active??0;
     document.getElementById('lifeResolved').textContent=lh.resolved??0;
+
+
+    const funnel=d.learning_funnel||d.collector?.funnel_24h||{};
+    document.getElementById('funnelScans').textContent=funnel.scans??0;
+    document.getElementById('funnelCandidates').textContent=funnel.candidates??0;
+    document.getElementById('funnelCandidateRate').textContent=funnel.candidate_rate_pct==null?'—':fmt(funnel.candidate_rate_pct,2)+'% of scans';
+    document.getElementById('funnelLearning').textContent=funnel.learning_captures??0;
+    document.getElementById('funnelStrict').textContent=funnel.strict_captures??0;
+    document.getElementById('funnelRejected').textContent=funnel.rejected_noise??0;
+    const topLR=(funnel.top_learning_rejections||[])[0];
+    document.getElementById('funnelTopReject').textContent=topLR?`${topLR[0]} · ${topLR[1]}`:'—';
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';
