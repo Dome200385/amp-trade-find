@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "AMP TRADE FIND"
-    app_version: str = "0.9.5"
+    app_version: str = "0.9.6"
 
     bybit_base_url: str = "https://api.bybit.com"
     bybit_ws_linear_url: str = "wss://stream.bybit.com/v5/public/linear"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     min_validated_samples: int = 200
     max_signal_validity_minutes: int = 15
 
-    strategy_version: str = "FIND-V9.5.2"
+    strategy_version: str = "FIND-V9.6-1"
     signal_cooldown_minutes: int = 20
     signal_dedupe_price_pct: float = 0.20
 
@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     validation_require_cross_market: bool = True
     validation_require_entry_plan: bool = True
     validation_auto_capture_enabled: bool = True
+
+    # V9.6 Validation Acceleration: broader PAPER learning capture only.
+    # These settings DO NOT relax READY/PAPER_SIGNAL trading rules.
+    learning_capture_enabled: bool = True
+    learning_capture_min_score: int = 45
+    learning_capture_min_state: str = "WATCH"
+    learning_capture_allow_low_quality: bool = True
+    learning_capture_require_cross_market: bool = False
+    learning_capture_require_entry_plan: bool = True
 
     collector_heartbeat_seconds: int = 30
     collector_stats_window_hours: int = 24

@@ -68,6 +68,10 @@ def init_validation_db():
             db.execute("ALTER TABLE validation_setups ADD COLUMN confidence_pct REAL")
         if "features_json" not in cols:
             db.execute("ALTER TABLE validation_setups ADD COLUMN features_json TEXT")
+        if "capture_tier" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN capture_tier TEXT NOT NULL DEFAULT 'STRICT'")
+        if "strict_rejection_reason" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN strict_rejection_reason TEXT")
 
         db.execute("""
         CREATE INDEX IF NOT EXISTS idx_validation_status
@@ -79,7 +83,7 @@ def init_validation_db():
         """)
         db.commit()
 
-def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
+def capture_setup(snapshot: dict, signal: dict, *, capture_tier: str = "STRICT", strict_rejection_reason: str | None = None) -> tuple[bool, str]:
     direction = signal.get("directional_bias")
     state = signal.get("state")
     quality = signal.get("signal_quality") or {}
@@ -87,14 +91,19 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
     features = extract_setup_features(snapshot, signal)
     entry = signal.get("entry_decision")
     score = signal.get("long_score", 0) if direction == "LONG" else signal.get("short_score", 0)
+    learning = capture_tier == "LEARNING"
 
     if direction not in ("LONG", "SHORT"):
         return False, "NO_DIRECTION"
-    if state not in ("WATCH", "SETUP_FORMING", "READY", "PAPER_SIGNAL"):
+    allowed_states = ("WATCH", "SETUP_FORMING", "READY", "PAPER_SIGNAL") if learning else ("SETUP_FORMING", "READY", "PAPER_SIGNAL")
+    if state not in allowed_states:
         return False, "STATE_NOT_CAPTURED"
-    if int(score) < settings.validation_capture_min_score:
+    min_score = settings.learning_capture_min_score if learning else settings.validation_capture_min_score
+    if int(score) < min_score:
         return False, "SCORE_TOO_LOW"
-    if quality.get("grade") not in ("MEDIUM", "HIGH"):
+    if not learning and quality.get("grade") not in ("MEDIUM", "HIGH"):
+        return False, "QUALITY_TOO_LOW"
+    if learning and not settings.learning_capture_allow_low_quality and quality.get("grade") not in ("MEDIUM", "HIGH"):
         return False, "QUALITY_TOO_LOW"
     if not entry:
         return False, "NO_ENTRY_PLAN"
@@ -102,7 +111,6 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
     setup_id = signal["signal_id"]
     now = datetime.now(timezone.utc)
     with _connect() as db:
-        # Deduplicate near-identical active setup: same direction, same strategy, within 15 min.
         existing = db.execute("""
             SELECT setup_id, entry_center
             FROM validation_setups
@@ -110,16 +118,10 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
               AND outcome IN ('WAITING_ENTRY','ACTIVE')
               AND created_at >= datetime('now', ?)
             ORDER BY created_at DESC LIMIT 1
-        """, (
-            direction,
-            settings.strategy_version,
-            f"-{settings.validation_capture_cooldown_minutes} minutes"
-        )).fetchone()
-
+        """, (direction, settings.strategy_version, f"-{settings.validation_capture_cooldown_minutes} minutes")).fetchone()
         if existing:
-            old = float(existing["entry_center"] or 0)
-            new = float(entry.get("entry_center") or 0)
-            pct = abs(new-old)/old*100 if old else 999
+            old = float(existing["entry_center"] or 0); newp = float(entry.get("entry_center") or 0)
+            pct = abs(newp-old)/old*100 if old else 999
             if pct < settings.signal_dedupe_price_pct:
                 return False, "VALIDATION_DUPLICATE"
 
@@ -129,10 +131,10 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
             state_at_capture, quality_grade, setup_grade, confidence_pct,
             score, long_score, short_score, entry_low, entry_high, entry_center, stop, target1, target2, rr1, rr2,
             validity_minutes, outcome, mfe_price, mae_price, capture_hour_utc,
-            primary_source, available_venues, live_cvd_direction, live_cvd_pct, features_json,
+            primary_source, available_venues, live_cvd_direction, live_cvd_pct,
             market_bias, invalidation, blockers_json, warnings_json, quality_json,
-            snapshot_json, signal_json, features_json
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            snapshot_json, signal_json, features_json, capture_tier, strict_rejection_reason
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             setup_id, now.isoformat(), now.isoformat(), settings.strategy_version,
             signal.get("symbol"), direction, state, quality.get("grade"),
@@ -140,9 +142,8 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
             int(score), int(signal.get("long_score",0)), int(signal.get("short_score",0)),
             entry.get("entry_low"), entry.get("entry_high"), entry.get("entry_center"),
             entry.get("stop"), entry.get("target1"), entry.get("target2"),
-            entry.get("rr_target1"), entry.get("rr_target2"),
-            entry.get("validity_minutes"), "WAITING_ENTRY",
-            signal.get("price"), signal.get("price"), now.hour,
+            entry.get("rr_target1"), entry.get("rr_target2"), entry.get("validity_minutes"),
+            "WAITING_ENTRY", signal.get("price"), signal.get("price"), now.hour,
             snapshot.get("primary_source"), quality.get("available_venues"),
             quality.get("live_cvd_direction"), quality.get("live_cvd_pct"),
             signal.get("market_bias"), entry.get("invalidation"),
@@ -152,6 +153,7 @@ def capture_setup(snapshot: dict, signal: dict) -> tuple[bool, str]:
             json.dumps(snapshot, separators=(",",":")),
             json.dumps(signal, separators=(",",":")),
             json.dumps(features, separators=(",",":")),
+            capture_tier, strict_rejection_reason,
         ))
         db.commit()
     return True, setup_id
@@ -226,7 +228,8 @@ def recent_validation(limit=50):
                    setup_grade, confidence_pct, score, long_score, short_score, entry_low, entry_high, entry_center,
                    stop, target1, target2, rr1, rr2, entry_reached, entry_reached_at,
                    outcome, outcome_at, mfe_r, mae_r, close_r, capture_hour_utc,
-                   primary_source, available_venues, live_cvd_direction, live_cvd_pct, features_json
+                   primary_source, available_venues, live_cvd_direction, live_cvd_pct, features_json,
+                   capture_tier, strict_rejection_reason
             FROM validation_setups
             ORDER BY created_at DESC
             LIMIT ?

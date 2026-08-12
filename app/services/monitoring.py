@@ -58,4 +58,11 @@ async def build_monitoring_payload():
         "data_health": build_data_health(snapshot, collector, normalized_venues),
         "learning_readiness": build_learning_readiness(),
         "lifecycle_health": lifecycle_health(),
+        "validation_acceleration": {
+            "enabled": settings.learning_capture_enabled,
+            "learning_min_state": settings.learning_capture_min_state,
+            "learning_min_score": settings.learning_capture_min_score,
+            "allow_low_quality": settings.learning_capture_allow_low_quality,
+            "strict_trade_rules_unchanged": True,
+        },
     }
