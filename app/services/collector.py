@@ -93,6 +93,7 @@ async def collector_cycle():
         learning_reason=learning_reason,
         captured=captured,
         capture_mode=capture_tier if capture_tier!="NONE" else None,
+        capture_reason=capture_reason,
     )
 
     counts=validation_counts()

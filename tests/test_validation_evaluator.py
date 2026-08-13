@@ -36,3 +36,17 @@ def test_short_tp1():
     r = evaluate_row(r0, 96.9)
     assert r["outcome"] == "TP1"
     assert r["close_r"] == 1.5
+
+def test_tp1_row_continues_to_tp2_observation():
+    r0 = row("LONG", 1)
+    r0.update({"outcome":"TP1", "tp1_hit":1, "tp2_hit":0, "post_tp1_stop":0})
+    r = evaluate_row(r0, 104.5)
+    assert r["outcome"] == "TP1_TRACK"
+    assert r["tp2_hit"] is True
+
+def test_tp1_row_observes_later_stop_without_rewriting_primary_outcome():
+    r0 = row("LONG", 1)
+    r0.update({"outcome":"TP1", "tp1_hit":1, "tp2_hit":0, "post_tp1_stop":0})
+    r = evaluate_row(r0, 97.9)
+    assert r["outcome"] == "TP1_TRACK"
+    assert r["post_tp1_stop"] is True

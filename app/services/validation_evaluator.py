@@ -2,7 +2,7 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from app.config import settings
 from app.services.market_source import fetch_last_price_resilient
-from app.services.validation_storage import active_validation_setups, update_validation
+from app.services.validation_storage import active_validation_setups, update_validation, update_target_lifecycle
 
 def _dt(s):
     return datetime.fromisoformat(s).astimezone(timezone.utc)
@@ -26,6 +26,17 @@ def evaluate_row(row: dict, price: float, now=None):
     created = _dt(row["created_at"])
     entry_reached = bool(row["entry_reached"])
     fill = float(row["entry_fill_price"]) if row["entry_fill_price"] is not None else entry_center
+
+    # V9.6.2: after the primary TP1 outcome, keep observing the same setup
+    # for TP2 or a post-TP1 stop. This does not rewrite the original TP1 result.
+    if row.get("outcome") == "TP1":
+        if direction == "LONG":
+            if price >= t2: return {"outcome":"TP1_TRACK", "tp2_hit":True}
+            if price <= stop: return {"outcome":"TP1_TRACK", "post_tp1_stop":True}
+        else:
+            if price <= t2: return {"outcome":"TP1_TRACK", "tp2_hit":True}
+            if price >= stop: return {"outcome":"TP1_TRACK", "post_tp1_stop":True}
+        return {"outcome":"TP1_TRACK"}
 
     # Waiting for entry.
     if not entry_reached:
@@ -114,6 +125,14 @@ async def evaluate_validation_once():
         result = evaluate_row(row, price, now)
         if result["outcome"] == "WAITING_ENTRY":
             continue
+        if result["outcome"] == "TP1_TRACK":
+            if result.get("tp2_hit"):
+                update_target_lifecycle(row["setup_id"], tp2_hit=True)
+                updates.append({"setup_id":row["setup_id"], "outcome":"TP2_AFTER_TP1"})
+            elif result.get("post_tp1_stop"):
+                update_target_lifecycle(row["setup_id"], post_tp1_stop=True)
+                updates.append({"setup_id":row["setup_id"], "outcome":"STOP_AFTER_TP1"})
+            continue
         update_validation(
             row["setup_id"],
             outcome=result["outcome"],
@@ -126,6 +145,11 @@ async def evaluate_validation_once():
             mae_r=result.get("mae_r"),
             close_r=result.get("close_r"),
         )
+        if result["outcome"] == "TP1":
+            update_target_lifecycle(row["setup_id"], tp1_hit=True)
+        elif result["outcome"] == "TP2":
+            # Direct TP2 implies TP1 was crossed between polls as well.
+            update_target_lifecycle(row["setup_id"], tp1_hit=True, tp2_hit=True)
         updates.append({"setup_id":row["setup_id"], "outcome":result["outcome"]})
 
     return {"checked":len(rows), "price":price, "updates":updates}

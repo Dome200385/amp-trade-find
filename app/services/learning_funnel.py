@@ -24,9 +24,13 @@ def init_learning_funnel_db():
             strict_reason TEXT,
             learning_reason TEXT,
             captured INTEGER NOT NULL DEFAULT 0,
-            capture_mode TEXT
+            capture_mode TEXT,
+            capture_reason TEXT
         )
         """)
+        cols={r[1] for r in db.execute("PRAGMA table_info(learning_funnel_runs)").fetchall()}
+        if "capture_reason" not in cols:
+            db.execute("ALTER TABLE learning_funnel_runs ADD COLUMN capture_reason TEXT")
         db.execute("CREATE INDEX IF NOT EXISTS idx_funnel_run_at ON learning_funnel_runs(run_at)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_funnel_stage ON learning_funnel_runs(stage, run_at)")
         db.commit()
@@ -51,6 +55,7 @@ def record_funnel_run(
     learning_reason: str,
     captured: bool,
     capture_mode: str | None,
+    capture_reason: str | None = None,
 ):
     q = signal.get("signal_quality") or {}
     stage = classify_stage(
@@ -63,8 +68,8 @@ def record_funnel_run(
         db.execute("""
         INSERT INTO learning_funnel_runs(
             run_at,state,direction,long_score,short_score,confidence_pct,quality_grade,
-            stage,strict_reason,learning_reason,captured,capture_mode
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+            stage,strict_reason,learning_reason,captured,capture_mode,capture_reason
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             datetime.now(timezone.utc).isoformat(),
             signal.get("state"),
@@ -78,6 +83,7 @@ def record_funnel_run(
             learning_reason,
             1 if captured else 0,
             capture_mode,
+            capture_reason,
         ))
         db.commit()
     return stage
@@ -97,6 +103,7 @@ def funnel_stats(hours: int = 24):
     stages = Counter(r.get("stage") or "UNKNOWN" for r in rows)
     strict_reasons = Counter(r.get("strict_reason") or "NONE" for r in rows)
     learning_reasons = Counter(r.get("learning_reason") or "NONE" for r in rows)
+    capture_reasons = Counter(r.get("capture_reason") or "NONE" for r in rows if r.get("stage") in ("STRICT_CANDIDATE","LEARNING_CANDIDATE"))
 
     total = len(rows)
     candidates = (
@@ -118,5 +125,9 @@ def funnel_stats(hours: int = 24):
         "stages": dict(stages),
         "top_strict_rejections": strict_reasons.most_common(8),
         "top_learning_rejections": learning_reasons.most_common(8),
+        "top_candidate_capture_rejections": capture_reasons.most_common(8),
+        "strict_candidates": stages["STRICT_CANDIDATE"] + stages["STRICT_CAPTURE"],
+        "learning_candidates": stages["LEARNING_CANDIDATE"] + stages["LEARNING_CAPTURE"],
+        "candidate_capture_failures": stages["STRICT_CANDIDATE"] + stages["LEARNING_CANDIDATE"],
         "last_run": rows[0] if rows else None,
     }

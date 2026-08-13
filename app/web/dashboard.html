@@ -118,7 +118,7 @@
     <div class="card span8">
       <div class="label">Market Venues</div>
       <table>
-        <thead><tr><th>Venue</th><th>Type</th><th>Status</th><th>Delta %</th><th>Orderbook</th></tr></thead>
+        <thead><tr><th>Venue</th><th>Type</th><th>Orderflow</th><th>Primary</th><th>REST</th><th>Delta %</th><th>Orderbook</th></tr></thead>
         <tbody id="venues"></tbody>
       </table>
     </div>
@@ -203,6 +203,8 @@
       </div>
       <div class="row"><span class="muted">Rejected noise</span><span id="funnelRejected">—</span></div>
       <div class="row"><span class="muted">Top learning rejection</span><span id="funnelTopReject">—</span></div>
+      <div class="row"><span class="muted">Candidate capture failures</span><span id="funnelCaptureFailures">—</span></div>
+      <div class="row"><span class="muted">Top capture rejection</span><span id="funnelCaptureReject">—</span></div>
     </div>
 
     <div class="card span12">
@@ -272,8 +274,10 @@ async function load(){
     document.getElementById('venues').innerHTML=names.map(n=>{
       const x=v[n]||{};
       const cls=x.available?'ok':'bad';
+      const hx=(d.data_health?.venues||{})[n]||{}; const cap=hx.capabilities||{};
       return `<tr><td>${(x.venue||n).toUpperCase()}</td><td>${x.market_type||'—'}</td>
         <td><span class="dot ${cls}"></span>${x.available?'LIVE':'OFF'}</td>
+        <td>${cap.primary_price_feed?'YES':'—'}</td><td>${cap.rest_bundle?'OK':'OFF'}</td>
         <td>${fmt(x.taker_delta_pct,2)}</td><td>${fmt(x.orderbook_imbalance,3)}</td></tr>`
     }).join('');
 
@@ -357,6 +361,9 @@ async function load(){
     document.getElementById('funnelRejected').textContent=funnel.rejected_noise??0;
     const topLR=(funnel.top_learning_rejections||[])[0];
     document.getElementById('funnelTopReject').textContent=topLR?`${topLR[0]} · ${topLR[1]}`:'—';
+    document.getElementById('funnelCaptureFailures').textContent=funnel.candidate_capture_failures??0;
+    const topCR=(funnel.top_candidate_capture_rejections||[])[0];
+    document.getElementById('funnelCaptureReject').textContent=topCR?`${topCR[0]} · ${topCR[1]}`:'—';
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';

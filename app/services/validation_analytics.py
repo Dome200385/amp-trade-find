@@ -33,8 +33,8 @@ def _stats(rows):
     expectancy = sum(float(r["close_r"] or 0) for r in resolved)/len(resolved) if resolved else None
     pf = pos/neg if neg else None
 
-    tp1 = sum(1 for r in resolved if r["outcome"] == "TP1")
-    tp2 = sum(1 for r in resolved if r["outcome"] == "TP2")
+    tp1 = sum(1 for r in resolved if r.get("tp1_hit") or r["outcome"] in ("TP1","TP2"))
+    tp2 = sum(1 for r in resolved if r.get("tp2_hit") or r["outcome"] == "TP2")
     stopped = sum(1 for r in resolved if r["outcome"] == "STOPPED")
     expired = sum(1 for r in resolved if r["outcome"] == "EXPIRED")
 
@@ -65,7 +65,8 @@ def validation_report():
         rows = [dict(r) for r in db.execute("""
             SELECT direction, quality_grade, setup_grade, confidence_pct, score,
                    entry_reached, outcome, close_r, mfe_r, mae_r,
-                   capture_hour_utc, live_cvd_direction, primary_source
+                   capture_hour_utc, live_cvd_direction, primary_source,
+                   tp1_hit, tp2_hit, post_tp1_stop
             FROM validation_setups
         """).fetchall()]
 

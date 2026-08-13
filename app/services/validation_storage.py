@@ -72,6 +72,24 @@ def init_validation_db():
             db.execute("ALTER TABLE validation_setups ADD COLUMN capture_tier TEXT NOT NULL DEFAULT 'STRICT'")
         if "strict_rejection_reason" not in cols:
             db.execute("ALTER TABLE validation_setups ADD COLUMN strict_rejection_reason TEXT")
+        # V9.6.2 observational target lifecycle. Primary outcome semantics stay unchanged:
+        # TP1 remains a resolved validation outcome, while TP2 is observed afterwards.
+        if "tp1_hit" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN tp1_hit INTEGER NOT NULL DEFAULT 0")
+        if "tp1_hit_at" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN tp1_hit_at TEXT")
+        if "tp2_hit" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN tp2_hit INTEGER NOT NULL DEFAULT 0")
+        if "tp2_hit_at" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN tp2_hit_at TEXT")
+        if "post_tp1_stop" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN post_tp1_stop INTEGER NOT NULL DEFAULT 0")
+        if "post_tp1_stop_at" not in cols:
+            db.execute("ALTER TABLE validation_setups ADD COLUMN post_tp1_stop_at TEXT")
+
+        # Backfill milestone flags for pre-V9.6.2 resolved rows without altering outcomes.
+        db.execute("UPDATE validation_setups SET tp1_hit=1 WHERE outcome IN ('TP1','TP2')")
+        db.execute("UPDATE validation_setups SET tp2_hit=1 WHERE outcome='TP2'")
 
         db.execute("""
         CREATE INDEX IF NOT EXISTS idx_validation_status
@@ -163,9 +181,25 @@ def active_validation_setups():
         rows = db.execute("""
             SELECT * FROM validation_setups
             WHERE outcome IN ('WAITING_ENTRY','ACTIVE')
+               OR (outcome='TP1' AND COALESCE(tp2_hit,0)=0 AND COALESCE(post_tp1_stop,0)=0
+                   AND outcome_at >= datetime('now', ?))
             ORDER BY created_at ASC
-        """).fetchall()
+        """, (f"-{settings.validation_trade_timeout_minutes} minutes",)).fetchall()
     return [dict(r) for r in rows]
+
+def update_target_lifecycle(setup_id: str, *, tp1_hit=False, tp2_hit=False, post_tp1_stop=False):
+    now = datetime.now(timezone.utc).isoformat()
+    fields=["updated_at=?"]; vals=[now]
+    if tp1_hit:
+        fields += ["tp1_hit=1", "tp1_hit_at=COALESCE(tp1_hit_at, ?)"]; vals += [now]
+    if tp2_hit:
+        fields += ["tp2_hit=1", "tp2_hit_at=COALESCE(tp2_hit_at, ?)"]; vals += [now]
+    if post_tp1_stop:
+        fields += ["post_tp1_stop=1", "post_tp1_stop_at=COALESCE(post_tp1_stop_at, ?)"]; vals += [now]
+    vals.append(setup_id)
+    with _connect() as db:
+        db.execute(f"UPDATE validation_setups SET {', '.join(fields)} WHERE setup_id=?", vals)
+        db.commit()
 
 def update_validation(
     setup_id: str,
@@ -229,7 +263,8 @@ def recent_validation(limit=50):
                    stop, target1, target2, rr1, rr2, entry_reached, entry_reached_at,
                    outcome, outcome_at, mfe_r, mae_r, close_r, capture_hour_utc,
                    primary_source, available_venues, live_cvd_direction, live_cvd_pct, features_json,
-                   capture_tier, strict_rejection_reason
+                   capture_tier, strict_rejection_reason, tp1_hit, tp1_hit_at, tp2_hit, tp2_hit_at,
+                   post_tp1_stop, post_tp1_stop_at
             FROM validation_setups
             ORDER BY created_at DESC
             LIMIT ?

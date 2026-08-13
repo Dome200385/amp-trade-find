@@ -16,14 +16,13 @@ async def build_monitoring_payload():
     signal = calculate_signal(snapshot)
     collector = collector_status()
     orderflow = snapshot.get("orderflow") or {}
-    normalized_venues = (
-        orderflow.get("venues")
-        or {
-            k: orderflow.get(k, {})
-            for k in ("bybit","binance","okx","kraken","coinbase")
-            if isinstance(orderflow.get(k), dict)
-        }
-    )
+    # V9.6.2: cross_exchange is the canonical venue map. The primary
+    # orderflow object contains metrics, not necessarily per-venue children.
+    normalized_venues = snapshot.get("cross_exchange") or orderflow.get("venues") or {
+        k: orderflow.get(k, {})
+        for k in ("bybit","binance","okx","kraken","coinbase")
+        if isinstance(orderflow.get(k), dict)
+    }
     return {
         "api_version": settings.app_version,
         "strategy_version": settings.strategy_version,

@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "AMP TRADE FIND"
-    app_version: str = "0.9.6"
+    app_version: str = "0.9.6.2"
 
     bybit_base_url: str = "https://api.bybit.com"
     bybit_ws_linear_url: str = "wss://stream.bybit.com/v5/public/linear"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     min_validated_samples: int = 200
     max_signal_validity_minutes: int = 15
 
-    strategy_version: str = "FIND-V9.6.1"
+    strategy_version: str = "FIND-V9.6.2"
     signal_cooldown_minutes: int = 20
     signal_dedupe_price_pct: float = 0.20
 
