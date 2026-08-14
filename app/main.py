@@ -22,6 +22,7 @@ from app.services.dashboard import build_dashboard
 from app.services.persistence import ensure_persistent_storage, persistence_status
 from app.services.collector_storage import init_collector_db, collector_stats
 from app.services.learning_funnel import init_learning_funnel_db, funnel_stats
+from app.services.observation_learning import init_observation_db, observation_stats
 from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
@@ -55,6 +56,7 @@ async def lifespan(app: FastAPI):
     init_validation_db()
     init_collector_db()
     init_learning_funnel_db()
+    init_observation_db()
     ws_task = asyncio.create_task(run_bybit_trade_stream())
     outcome_task = asyncio.create_task(outcome_loop())
     validation_task = asyncio.create_task(validation_loop())

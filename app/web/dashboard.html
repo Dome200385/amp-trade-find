@@ -208,6 +208,18 @@
     </div>
 
     <div class="card span12">
+      <div class="label">Observation Learning · Shadow Only · 7d</div>
+      <div class="grid" style="margin-top:10px">
+        <div class="card span3"><div class="label">Observed</div><div class="med" id="obsCaptured">—</div></div>
+        <div class="card span3"><div class="label">Resolved</div><div class="med" id="obsResolved">—</div></div>
+        <div class="card span3"><div class="label">Active / Waiting</div><div class="med" id="obsOpen">—</div></div>
+        <div class="card span3"><div class="label">Missed Entry</div><div class="med" id="obsMissed">—</div></div>
+      </div>
+      <div class="muted" style="margin-top:10px">Observation samples never relax STRICT or LEARNING capture rules and never create live trades.</div>
+      <div style="overflow:auto;margin-top:10px"><table><thead><tr><th>Best condition</th><th>N</th><th>Win %</th><th>PF</th><th>Exp. R</th></tr></thead><tbody id="obsConditions"><tr><td colspan="5" class="muted">Collecting shadow samples…</td></tr></tbody></table></div>
+    </div>
+
+    <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
@@ -364,6 +376,14 @@ async function load(){
     document.getElementById('funnelCaptureFailures').textContent=funnel.candidate_capture_failures??0;
     const topCR=(funnel.top_candidate_capture_rejections||[])[0];
     document.getElementById('funnelCaptureReject').textContent=topCR?`${topCR[0]} · ${topCR[1]}`:'—';
+
+    const obs=d.observation_learning||{};
+    document.getElementById('obsCaptured').textContent=obs.captured??0;
+    document.getElementById('obsResolved').textContent=obs.resolved??0;
+    document.getElementById('obsOpen').textContent=(obs.active??0)+' / '+(obs.waiting??0);
+    document.getElementById('obsMissed').textContent=obs.missed_entry??0;
+    const oc=(obs.by_condition||[]);
+    document.getElementById('obsConditions').innerHTML=oc.length?oc.map(x=>`<tr><td>${x.bucket}</td><td>${x.n}</td><td>${fmt(x.win_pct,1)}%</td><td>${x.pf==null?'∞':fmt(x.pf,2)}</td><td>${fmt(x.exp_r,2)}</td></tr>`).join(''):'<tr><td colspan="5" class="muted">Collecting shadow samples…</td></tr>';
 
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';

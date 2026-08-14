@@ -7,6 +7,7 @@ from app.services.validation_storage import capture_setup, validation_counts
 from app.services.validation_evaluator import evaluate_validation_once
 from app.services.collector_storage import record_run, collector_stats
 from app.services.learning_funnel import record_funnel_run, funnel_stats
+from app.services.observation_learning import capture_observation, evaluate_observations
 
 _status={"started_at_utc":datetime.now(timezone.utc).isoformat(),"last_cycle_at_utc":None,"last_error":None}
 
@@ -61,6 +62,7 @@ async def collector_cycle():
     evaluation=await evaluate_validation_once()
     snapshot=await build_market_snapshot()
     signal=calculate_signal(snapshot)
+    observation_evaluation=evaluate_observations(snapshot.get("price")) if snapshot.get("price") is not None else {"checked":0,"updates":[]}
     counts=validation_counts()
 
     strict_ok, strict_reason=_policy(signal,counts)
@@ -84,6 +86,11 @@ async def collector_cycle():
             capture_tier="LEARNING"
     else:
         capture_reason=f"{strict_reason}|{learning_reason}"
+
+    observation_captured=False
+    observation_reason="STRICT_OR_LEARNING_CAPTURE"
+    if not captured:
+        observation_captured,observation_reason=capture_observation(snapshot,signal,capture_reason)
 
     record_funnel_run(
         signal=signal,
@@ -122,7 +129,10 @@ async def collector_cycle():
         "quality_grade":q.get("grade"),
         "capture_tier":capture_tier,
         "validation_counts":counts,
-        "evaluation":evaluation
+        "evaluation":evaluation,
+        "observation_evaluation":observation_evaluation,
+        "observation_captured":observation_captured,
+        "observation_reason":observation_reason
     })
     return dict(_status)
 
