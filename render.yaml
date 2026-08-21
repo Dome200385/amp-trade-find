@@ -11,7 +11,7 @@ services:
       - key: PYTHON_VERSION
         value: 3.12.7
       - key: APP_VERSION
-        value: 0.9.6
+        value: 0.9.8
       - key: PAPER_MODE
         value: "true"
       - key: DATABASE_PATH
