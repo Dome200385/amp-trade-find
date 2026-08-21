@@ -4,6 +4,8 @@ from app.services.signal_quality import build_signal_quality
 from app.services.entry_engine import build_entry_decision
 from app.services.state_machine import transition
 from app.services.adaptive_quality import build_adaptive_assessment
+from app.services.regime_prior import get_regime_prior
+from app.services.setup_features import extract_setup_features
 
 def _component(name: str, lp: int, sp: int, mx: int, detail: str) -> dict:
     return {"name": name, "long_points": lp, "short_points": sp, "max_points": mx, "detail": detail}
@@ -148,6 +150,33 @@ def calculate_signal(snapshot: dict) -> dict:
         direction = "NONE"
         directional_score = max(long_score, short_score)
 
+    raw_long_score, raw_short_score = int(long_score), int(short_score)
+    draft_for_regime = {
+        "components": c,
+        "signal_quality": quality,
+        "directional_bias": direction,
+        "long_score": raw_long_score,
+        "short_score": raw_short_score,
+    }
+    feature_ctx = extract_setup_features(snapshot, draft_for_regime)
+    prior = (
+        get_regime_prior(
+            direction,
+            feature_ctx.get("market_regime") or "UNKNOWN",
+            feature_ctx.get("volatility_bucket") or "UNKNOWN",
+            feature_ctx.get("cross_market_consensus") or "NEUTRAL",
+        )
+        if direction in ("LONG", "SHORT")
+        else {"adjustment": 0, "reason": "NO_RAW_DIRECTION", "resolved": 0}
+    )
+    regime_adjustment = int(prior.get("adjustment") or 0)
+    if direction == "LONG":
+        long_score = max(0, min(100, long_score + regime_adjustment))
+        directional_score = long_score
+    elif direction == "SHORT":
+        short_score = max(0, min(100, short_score + regime_adjustment))
+        directional_score = short_score
+
     blockers = ["PAPER_MODE", "BACKTEST_NOT_VALIDATED"]
     if not quality["live_cvd_ready"]:
         blockers.append("LIVE_CVD_NOT_READY")
@@ -213,7 +242,11 @@ def calculate_signal(snapshot: dict) -> dict:
         "candidate_opportunity": candidate,
         "directional_bias": direction,
         "long_score": int(long_score),
+        "raw_long_score": raw_long_score,
         "short_score": int(short_score),
+        "raw_short_score": raw_short_score,
+        "regime_prior": prior,
+        "regime_adjustment_points": regime_adjustment,
         "market_bias": bias,
         "setup": "Cross-market momentum candidate" if direction != "NONE" else "None",
         "signal_quality": quality,

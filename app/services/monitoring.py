@@ -9,6 +9,8 @@ from app.services.learning_readiness import build_learning_readiness
 from app.services.lifecycle_health import lifecycle_health
 from app.services.learning_funnel import funnel_stats
 from app.services.observation_learning import observation_stats
+from app.services.forward_test import forward_test_status
+from app.services.regime_prior import regime_prior_summary
 from app.services.collector import collector_status
 from app.services.validation_storage import recent_validation
 
@@ -61,6 +63,8 @@ async def build_monitoring_payload():
         "lifecycle_health": lifecycle_health(),
         "learning_funnel": funnel_stats(24),
         "observation_learning": observation_stats(168),
+        "forward_test": forward_test_status(),
+        "regime_prior": regime_prior_summary(),
         "validation_acceleration": {
             "enabled": settings.learning_capture_enabled,
             "learning_min_state": settings.learning_capture_min_state,

@@ -220,6 +220,17 @@
     </div>
 
     <div class="card span12">
+      <div class="label">Forward Test · Out-of-Sample</div>
+      <div class="grid" style="margin-top:10px">
+        <div class="card span3"><div class="label">Status</div><div class="med" id="ftStatus">—</div></div>
+        <div class="card span3"><div class="label">Resolved</div><div class="med" id="ftResolved">0</div></div>
+        <div class="card span3"><div class="label">Win / PF</div><div class="med" id="ftWinPf">—</div></div>
+        <div class="card span3"><div class="label">Expectancy</div><div class="med" id="ftExp">—</div></div>
+      </div>
+      <div class="muted">V9.8 uses a frozen pre-deploy regime prior. New results do not feed back into scoring.</div>
+    </div>
+
+    <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
@@ -385,6 +396,11 @@ async function load(){
     const oc=(obs.by_condition||[]);
     document.getElementById('obsConditions').innerHTML=oc.length?oc.map(x=>`<tr><td>${x.bucket}</td><td>${x.n}</td><td>${fmt(x.win_pct,1)}%</td><td>${x.pf==null?'∞':fmt(x.pf,2)}</td><td>${fmt(x.exp_r,2)}</td></tr>`).join(''):'<tr><td colspan="5" class="muted">Collecting shadow samples…</td></tr>';
 
+    const ft=d.forward_test||{};
+    document.getElementById('ftStatus').textContent=`${ft.readiness||'—'} · ${ft.resolved??0}/${ft.target??50}`;
+    document.getElementById('ftResolved').textContent=ft.resolved??0;
+    document.getElementById('ftWinPf').textContent=ft.win_rate_pct==null?'—':`${fmt(ft.win_rate_pct,1)}% · PF ${ft.profit_factor==null?'—':fmt(ft.profit_factor,2)}`;
+    document.getElementById('ftExp').textContent=ft.expectancy_r==null?'—':`${fmt(ft.expectancy_r,3)} R`;
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';
   }catch(e){

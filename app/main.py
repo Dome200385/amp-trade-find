@@ -23,6 +23,8 @@ from app.services.persistence import ensure_persistent_storage, persistence_stat
 from app.services.collector_storage import init_collector_db, collector_stats
 from app.services.learning_funnel import init_learning_funnel_db, funnel_stats
 from app.services.observation_learning import init_observation_db, observation_stats
+from app.services.forward_test import init_forward_test, forward_test_status
+from app.services.regime_prior import regime_prior_summary
 from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
@@ -57,6 +59,7 @@ async def lifespan(app: FastAPI):
     init_collector_db()
     init_learning_funnel_db()
     init_observation_db()
+    init_forward_test()
     ws_task = asyncio.create_task(run_bybit_trade_stream())
     outcome_task = asyncio.create_task(outcome_loop())
     validation_task = asyncio.create_task(validation_loop())
@@ -309,6 +312,14 @@ async def validation_auto_run_endpoint():
 
 
 
+
+@app.get("/api/v1/forward-test/status")
+async def forward_test_status_endpoint():
+    return forward_test_status()
+
+@app.get("/api/v1/regime-prior/status")
+async def regime_prior_status_endpoint():
+    return regime_prior_summary()
 
 @app.get("/api/v1/learning/funnel")
 async def learning_funnel_endpoint(hours: int = Query(default=24, ge=1, le=720)):
