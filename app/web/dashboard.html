@@ -231,6 +231,25 @@
     </div>
 
     <div class="card span12">
+      <div class="label">V9.9 Forward Test · Fresh Out-of-Sample</div>
+      <div class="grid" style="margin-top:10px">
+        <div class="card span3"><div class="label">Status</div><div class="med" id="v99Status">—</div></div>
+        <div class="card span3"><div class="label">Resolved</div><div class="med" id="v99Resolved">0</div></div>
+        <div class="card span3"><div class="label">Win / PF</div><div class="med" id="v99WinPf">—</div></div>
+        <div class="card span3"><div class="label">Expectancy</div><div class="med" id="v99Exp">—</div></div>
+      </div>
+      <div class="muted">The failed V9.8 50-trade forward cohort is diagnostic input only and never counts toward V9.9 success.</div>
+    </div>
+
+    <div class="card span12">
+      <div class="label">V9.8 Forward Diagnostics</div>
+      <div class="row"><span class="muted">Weak supported buckets</span><span id="v99Weak">0</span></div>
+      <div class="row"><span class="muted">Strong supported buckets</span><span id="v99Strong">0</span></div>
+      <div class="row"><span class="muted">Current filter</span><span id="v99Filter">—</span></div>
+      <div class="muted">A weak bucket needs ≥8 forward samples, negative expectancy, and corroborating PF or win-rate weakness. Rejected buckets remain observable in shadow learning.</div>
+    </div>
+
+    <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
@@ -401,6 +420,16 @@ async function load(){
     document.getElementById('ftResolved').textContent=ft.resolved??0;
     document.getElementById('ftWinPf').textContent=ft.win_rate_pct==null?'—':`${fmt(ft.win_rate_pct,1)}% · PF ${ft.profit_factor==null?'—':fmt(ft.profit_factor,2)}`;
     document.getElementById('ftExp').textContent=ft.expectancy_r==null?'—':`${fmt(ft.expectancy_r,3)} R`;
+    const v99=d.v99_forward_test||{};
+    document.getElementById('v99Status').textContent=`${v99.status||'—'} · ${v99.resolved??0}/${v99.target??50}`;
+    document.getElementById('v99Resolved').textContent=v99.resolved??0;
+    document.getElementById('v99WinPf').textContent=v99.win_rate_pct==null?'—':`${fmt(v99.win_rate_pct,1)}% · PF ${v99.profit_factor==null?'—':fmt(v99.profit_factor,2)}`;
+    document.getElementById('v99Exp').textContent=v99.expectancy_r==null?'—':`${fmt(v99.expectancy_r,3)} R`;
+    const diag=d.v99_diagnostics||{};
+    document.getElementById('v99Weak').textContent=(diag.weak_buckets||[]).length;
+    document.getElementById('v99Strong').textContent=(diag.strong_buckets||[]).length;
+    const vf=d.v99_filter||{};
+    document.getElementById('v99Filter').textContent=vf.blocked?'BLOCKED · '+(vf.reason||''):'PASS';
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';
   }catch(e){

@@ -11,6 +11,9 @@ from app.services.learning_funnel import funnel_stats
 from app.services.observation_learning import observation_stats
 from app.services.forward_test import forward_test_status
 from app.services.regime_prior import regime_prior_summary
+from app.services.forward_test_v99 import v99_forward_status
+from app.services.forward_diagnostics import build_forward_diagnostics
+from app.services.v99_filter import evaluate_v99_filter
 from app.services.collector import collector_status
 from app.services.validation_storage import recent_validation
 
@@ -65,6 +68,9 @@ async def build_monitoring_payload():
         "observation_learning": observation_stats(168),
         "forward_test": forward_test_status(),
         "regime_prior": regime_prior_summary(),
+        "v99_forward_test": v99_forward_status(),
+        "v99_diagnostics": build_forward_diagnostics(),
+        "v99_filter": evaluate_v99_filter(snapshot, signal),
         "validation_acceleration": {
             "enabled": settings.learning_capture_enabled,
             "learning_min_state": settings.learning_capture_min_state,

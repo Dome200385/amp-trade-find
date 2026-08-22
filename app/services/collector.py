@@ -8,6 +8,7 @@ from app.services.validation_evaluator import evaluate_validation_once
 from app.services.collector_storage import record_run, collector_stats
 from app.services.learning_funnel import record_funnel_run, funnel_stats
 from app.services.observation_learning import capture_observation, evaluate_observations
+from app.services.v99_filter import evaluate_v99_filter
 
 _status={"started_at_utc":datetime.now(timezone.utc).isoformat(),"last_cycle_at_utc":None,"last_error":None}
 
@@ -67,6 +68,14 @@ async def collector_cycle():
 
     strict_ok, strict_reason=_policy(signal,counts)
     learning_ok, learning_reason=_learning_policy(signal,counts)
+    v99_filter=evaluate_v99_filter(snapshot,signal)
+    if v99_filter.get("blocked"):
+        if strict_ok:
+            strict_ok=False
+            strict_reason="V99_FORWARD_WEAK_BUCKET"
+        if learning_ok:
+            learning_ok=False
+            learning_reason="V99_FORWARD_WEAK_BUCKET"
 
     captured=False
     capture_reason=strict_reason
@@ -132,7 +141,8 @@ async def collector_cycle():
         "evaluation":evaluation,
         "observation_evaluation":observation_evaluation,
         "observation_captured":observation_captured,
-        "observation_reason":observation_reason
+        "observation_reason":observation_reason,
+        "v99_filter":v99_filter
     })
     return dict(_status)
 

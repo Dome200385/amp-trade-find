@@ -25,6 +25,8 @@ from app.services.learning_funnel import init_learning_funnel_db, funnel_stats
 from app.services.observation_learning import init_observation_db, observation_stats
 from app.services.forward_test import init_forward_test, forward_test_status
 from app.services.regime_prior import regime_prior_summary
+from app.services.forward_test_v99 import v99_forward_status
+from app.services.forward_diagnostics import build_forward_diagnostics
 from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
@@ -316,6 +318,14 @@ async def validation_auto_run_endpoint():
 @app.get("/api/v1/forward-test/status")
 async def forward_test_status_endpoint():
     return forward_test_status()
+
+@app.get("/api/v1/v99/forward-status")
+async def v99_forward_status_endpoint():
+    return v99_forward_status()
+
+@app.get("/api/v1/v99/diagnostics")
+async def v99_diagnostics_endpoint():
+    return build_forward_diagnostics()
 
 @app.get("/api/v1/regime-prior/status")
 async def regime_prior_status_endpoint():
