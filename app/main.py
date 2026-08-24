@@ -27,6 +27,8 @@ from app.services.forward_test import init_forward_test, forward_test_status
 from app.services.regime_prior import regime_prior_summary
 from app.services.forward_test_v99 import v99_forward_status
 from app.services.forward_diagnostics import build_forward_diagnostics
+from app.services.forward_test_v910 import v910_forward_status
+from app.services.v910_selection import build_v910_selection_model
 from app.services.collector import collector_loop, collector_cycle, collector_status
 from app.services.monitoring import build_monitoring_payload
 from app.services.validation_intelligence import build_intelligence
@@ -326,6 +328,14 @@ async def v99_forward_status_endpoint():
 @app.get("/api/v1/v99/diagnostics")
 async def v99_diagnostics_endpoint():
     return build_forward_diagnostics()
+
+@app.get("/api/v1/v910/forward-status")
+async def v910_forward_status_endpoint():
+    return v910_forward_status()
+
+@app.get("/api/v1/v910/selection-model")
+async def v910_selection_model_endpoint():
+    return build_v910_selection_model()
 
 @app.get("/api/v1/regime-prior/status")
 async def regime_prior_status_endpoint():

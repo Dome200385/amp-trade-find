@@ -9,6 +9,7 @@ from app.services.collector_storage import record_run, collector_stats
 from app.services.learning_funnel import record_funnel_run, funnel_stats
 from app.services.observation_learning import capture_observation, evaluate_observations
 from app.services.v99_filter import evaluate_v99_filter
+from app.services.v910_selection import evaluate_v910_selection
 
 _status={"started_at_utc":datetime.now(timezone.utc).isoformat(),"last_cycle_at_utc":None,"last_error":None}
 
@@ -69,7 +70,16 @@ async def collector_cycle():
     strict_ok, strict_reason=_policy(signal,counts)
     learning_ok, learning_reason=_learning_policy(signal,counts)
     v99_filter=evaluate_v99_filter(snapshot,signal)
-    if v99_filter.get("blocked"):
+    v910_selection=evaluate_v910_selection(snapshot,signal)
+    # V9.10 is the active gate. V9.9 remains diagnostic only.
+    if v910_selection.get("blocked"):
+        if strict_ok:
+            strict_ok=False
+            strict_reason=v910_selection.get("reason") or "V910_SELECTION_BLOCK"
+        if learning_ok:
+            learning_ok=False
+            learning_reason=v910_selection.get("reason") or "V910_SELECTION_BLOCK"
+    elif False and v99_filter.get("blocked"):
         if strict_ok:
             strict_ok=False
             strict_reason="V99_FORWARD_WEAK_BUCKET"
@@ -142,7 +152,8 @@ async def collector_cycle():
         "observation_evaluation":observation_evaluation,
         "observation_captured":observation_captured,
         "observation_reason":observation_reason,
-        "v99_filter":v99_filter
+        "v99_filter":v99_filter,
+        "v910_selection":v910_selection
     })
     return dict(_status)
 

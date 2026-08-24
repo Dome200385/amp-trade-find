@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "AMP TRADE FIND"
-    app_version: str = "0.9.9"
+    app_version: str = "0.9.10"
 
     bybit_base_url: str = "https://api.bybit.com"
     bybit_ws_linear_url: str = "wss://stream.bybit.com/v5/public/linear"
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     min_validated_samples: int = 200
     max_signal_validity_minutes: int = 15
 
-    strategy_version: str = "FIND-V9.9-1"
+    strategy_version: str = "FIND-V9.10-1"
     signal_cooldown_minutes: int = 20
     signal_dedupe_price_pct: float = 0.20
 
@@ -87,6 +87,18 @@ class Settings(BaseSettings):
     v99_block_profit_factor: float = 0.80
     v99_block_win_rate_pct: float = 35.0
     v99_forward_target_resolved: int = 50
+
+    # V9.10: frozen V9.9 forward-selection layer. V9.10 outcomes never feed this selector.
+    v910_selection_enabled: bool = True
+    v910_min_feature_samples: int = 10
+    v910_required_support_votes: int = 2
+    v910_support_expectancy_r: float = 0.10
+    v910_support_profit_factor: float = 1.15
+    v910_support_win_rate_pct: float = 45.0
+    v910_reject_expectancy_r: float = -0.10
+    v910_reject_profit_factor: float = 0.90
+    v910_reject_win_rate_pct: float = 40.0
+    v910_forward_target_resolved: int = 50
 
     collector_heartbeat_seconds: int = 30
     collector_stats_window_hours: int = 24

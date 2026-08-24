@@ -250,6 +250,19 @@
     </div>
 
     <div class="card span12">
+      <div class="label">V9.10 Forward Selection · Fresh Out-of-Sample</div>
+      <div class="grid" style="margin-top:10px">
+        <div class="card span3"><div class="label">Status</div><div class="med" id="v910Status">—</div></div>
+        <div class="card span3"><div class="label">Resolved</div><div class="med" id="v910Resolved">0</div></div>
+        <div class="card span3"><div class="label">Win / PF</div><div class="med" id="v910WinPf">—</div></div>
+        <div class="card span3"><div class="label">Expectancy</div><div class="med" id="v910Exp">—</div></div>
+      </div>
+      <div class="row"><span class="muted">Selection gate</span><span id="v910Gate">—</span></div>
+      <div class="row"><span class="muted">Supported / weak evidence</span><span id="v910Evidence">—</span></div>
+      <div class="muted">V9.10 selection is frozen from the completed V9.9 cohort. V9.10 outcomes never feed back into its own selection rules.</div>
+    </div>
+
+    <div class="card span12">
       <div class="label">Current Blockers / Warnings</div>
       <div id="messages" style="margin-top:10px;display:flex;gap:7px;flex-wrap:wrap"></div>
     </div>
@@ -430,6 +443,15 @@ async function load(){
     document.getElementById('v99Strong').textContent=(diag.strong_buckets||[]).length;
     const vf=d.v99_filter||{};
     document.getElementById('v99Filter').textContent=vf.blocked?'BLOCKED · '+(vf.reason||''):'PASS';
+    const v910=d.v910_forward_test||{};
+    document.getElementById('v910Status').textContent=`${v910.status||'—'} · ${v910.resolved??0}/${v910.target??50}`;
+    document.getElementById('v910Resolved').textContent=v910.resolved??0;
+    document.getElementById('v910WinPf').textContent=v910.win_rate_pct==null?'—':`${fmt(v910.win_rate_pct,1)}% · PF ${v910.profit_factor==null?'—':fmt(v910.profit_factor,2)}`;
+    document.getElementById('v910Exp').textContent=v910.expectancy_r==null?'—':`${fmt(v910.expectancy_r,3)} R`;
+    const vs=d.v910_selection||{};
+    document.getElementById('v910Gate').textContent=vs.blocked?'BLOCKED · '+(vs.reason||''):'SELECTED';
+    const vm=d.v910_selection_model||{}; const ev=vm.evidence||[];
+    document.getElementById('v910Evidence').textContent=`${ev.filter(x=>x.label==='SUPPORTED').length} / ${ev.filter(x=>x.label==='WEAK').length}`;
     const msgs=[...(d.signal.blockers||[]),...(d.signal.warnings||[])];
     document.getElementById('messages').innerHTML=msgs.length?msgs.map(pill).join(''):'<span class="long">No blockers</span>';
   }catch(e){

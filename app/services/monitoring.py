@@ -14,6 +14,8 @@ from app.services.regime_prior import regime_prior_summary
 from app.services.forward_test_v99 import v99_forward_status
 from app.services.forward_diagnostics import build_forward_diagnostics
 from app.services.v99_filter import evaluate_v99_filter
+from app.services.v910_selection import evaluate_v910_selection, build_v910_selection_model
+from app.services.forward_test_v910 import v910_forward_status
 from app.services.collector import collector_status
 from app.services.validation_storage import recent_validation
 
@@ -71,6 +73,9 @@ async def build_monitoring_payload():
         "v99_forward_test": v99_forward_status(),
         "v99_diagnostics": build_forward_diagnostics(),
         "v99_filter": evaluate_v99_filter(snapshot, signal),
+        "v910_selection": evaluate_v910_selection(snapshot, signal),
+        "v910_selection_model": build_v910_selection_model(),
+        "v910_forward_test": v910_forward_status(),
         "validation_acceleration": {
             "enabled": settings.learning_capture_enabled,
             "learning_min_state": settings.learning_capture_min_state,
